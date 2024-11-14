@@ -1,0 +1,64 @@
+Warmup: 1000
+Chain length: 1100
+Elapsed time: 51.862924 seconds
+
+Warmup: 1000
+Chain length: 1200
+Elapsed time: 59.392028 seconds
+
+Warmup: 1000
+Chain length: 1500
+Elapsed time: 74.717352 seconds
+
+Warmup: 1000
+Chain length: 1750
+Elapsed time: 87.437760 seconds
+
+Warmup: 1000
+Chain length: 2000
+Elapsed time: 96.925808 seconds
+
+Warmup: 1000
+Chain length: 2500
+Elapsed time: 119.241484 seconds
+
+Warmup: 1000
+Chain length: 3000
+Elapsed time: 147.016532 seconds
+
+Warmup: 1000
+Chain length: 4000
+Elapsed time: 194.317163 seconds
+
+Warmup: 1000
+Chain length: 5000
+Elapsed time: 238.705580 seconds
+
+Warmup: 1000
+Chain length: 6000
+Elapsed time: 286.932739 seconds
+
+Warmup: 1000
+Chain length: 8500
+Elapsed time: 422.004247 seconds
+
+Warmup: 1000
+Chain length: 11000
+Elapsed time: 519.850071 seconds
+
+Warmup: 1000
+Chain length: 15000
+Elapsed time: 753.612832 seconds
+
+Warmup: 1000
+Chain length: 21000
+Elapsed time: 987.540140 seconds
+
+Warmup: 1000
+Chain length: 31000
+Elapsed time: 1542.575931 seconds
+
+Warmup: 1000
+Chain length: 51000
+Elapsed time: 2374.717598 seconds
+

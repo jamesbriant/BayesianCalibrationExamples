@@ -1,0 +1,82 @@
+Executed 26/09/2024 15:18:06
+
+warmup: 1000, total chain length: 1100
+real	1m0.435s
+user	14m30.385s
+sys	4m24.725s
+
+warmup: 1000, total chain length: 1200
+real	1m7.886s
+user	16m31.175s
+sys	5m1.510s
+
+warmup: 1000, total chain length: 1500
+real	1m23.403s
+user	20m37.642s
+sys	6m12.442s
+
+warmup: 1000, total chain length: 1750
+real	1m35.810s
+user	23m38.138s
+sys	7m14.783s
+
+warmup: 1000, total chain length: 2000
+real	1m45.398s
+user	27m21.636s
+sys	8m10.197s
+
+warmup: 1000, total chain length: 2500
+real	2m7.890s
+user	33m12.787s
+sys	10m6.109s
+
+warmup: 1000, total chain length: 3000
+real	2m35.570s
+user	40m32.155s
+sys	11m58.220s
+
+warmup: 1000, total chain length: 4000
+real	3m23.096s
+user	53m22.903s
+sys	15m53.915s
+
+warmup: 1000, total chain length: 5000
+real	4m7.400s
+user	66m46.846s
+sys	20m4.200s
+
+warmup: 1000, total chain length: 6000
+real	4m55.479s
+user	81m29.264s
+sys	24m10.107s
+
+warmup: 1000, total chain length: 8500
+real	7m10.592s
+user	113m0.516s
+sys	33m54.486s
+
+warmup: 1000, total chain length: 11000
+real	8m48.379s
+user	143m42.825s
+sys	43m16.135s
+
+warmup: 1000, total chain length: 15000
+real	12m41.995s
+user	201m15.651s
+sys	61m59.992s
+
+warmup: 1000, total chain length: 21000
+real	16m37.395s
+user	278m41.728s
+sys	82m14.305s
+
+warmup: 1000, total chain length: 31000
+real	25m51.646s
+user	417m51.356s
+sys	126m29.707s
+
+warmup: 1000, total chain length: 51000
+real	39m43.677s
+user	670m59.694s
+sys	196m28.536s
+
