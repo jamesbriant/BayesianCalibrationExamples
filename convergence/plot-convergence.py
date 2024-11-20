@@ -2,10 +2,6 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-# path_to_data = '' # not implemented yet
-# this code assumes that the data is in subdirectories of the current directory
-# named 'dynamic' and 'static-3'
-
 N_fixed = {
     'dynamic': 500,
     'static-3': 1000,
