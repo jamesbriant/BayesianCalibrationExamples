@@ -155,7 +155,7 @@ def main(n_warm_up_iter, n_main_iter, hmc_mode, n_steps=None):
 
 
     np.savez(
-        current_file_dir.joinpath('convergence', f'W={n_warm_up_iter}-N={n_main_iter}.npz'),
+        current_file_dir.joinpath(f'W={n_warm_up_iter}-N={n_main_iter}.npz'),
         params_transformed_mean=params_transformed_mean, 
         params_transformed_std=params_transformed_std
     )
