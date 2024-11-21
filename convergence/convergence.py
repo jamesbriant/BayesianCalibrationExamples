@@ -46,6 +46,8 @@ def main(n_warm_up_iter, n_main_iter, hmc_mode, n_steps=None):
     lambda_epsilon_0 = 400
     lambda_epsilon_eta_0 = 10000
 
+    period_delta_0 = 2
+
     init_states = np.array([[
         map01toR(theta_0), 
         map0inftoR(ell_eta_0_0),
@@ -55,6 +57,7 @@ def main(n_warm_up_iter, n_main_iter, hmc_mode, n_steps=None):
         map0inftoR(lambda_delta_0),
         map0inftoR(lambda_epsilon_0),
         map0inftoR(lambda_epsilon_eta_0),
+        map0inftoR(period_delta_0),
     ]])
 
     param_transform_mici_to_gpjax = lambda x: [
@@ -71,6 +74,9 @@ def main(n_warm_up_iter, n_main_iter, hmc_mode, n_steps=None):
             mapRto0inf(x[5]), 
             mapRto0inf(x[6]), 
             mapRto0inf(x[7]),
+        ],
+        [ # period parameters
+            mapRto0inf(x[8]),
         ]
     ]
 
@@ -131,6 +137,7 @@ def main(n_warm_up_iter, n_main_iter, hmc_mode, n_steps=None):
             'm_lambda_delta': state.pos[5],
             'm_lambda_epsilon': state.pos[6],
             'm_lambda_epsilon_eta': state.pos[7],
+            'm_period_delta': state.pos[8],
             'hamiltonian': system.h(state)
         }
 
