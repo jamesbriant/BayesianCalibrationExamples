@@ -7,8 +7,6 @@ import jax.numpy as jnp
 import gpjax as gpx
 from kohgpjax.base import AbstractKOHModel
 
-# from MATLAB_mappings import ell2rho
-
 class Model(AbstractKOHModel):
     def k_eta(self, GPJAX_params) -> gpx.kernels.AbstractKernel:
         thetas, ells, lambdas = GPJAX_params
@@ -26,7 +24,19 @@ class Model(AbstractKOHModel):
                 gpx.kernels.RBF( # t2
                     active_dims=[2],
                     lengthscale=jnp.array(ells[2]),
-                )
+                ),
+                gpx.kernels.RBF( # t3
+                    active_dims=[3],
+                    lengthscale=jnp.array(ells[3]),
+                ),
+                gpx.kernels.RBF( # t4
+                    active_dims=[4],
+                    lengthscale=jnp.array(ells[4]),
+                ),
+                gpx.kernels.RBF( # t5
+                    active_dims=[5],
+                    lengthscale=jnp.array(ells[5]),
+                ),
             ]
         )
     
@@ -34,7 +44,7 @@ class Model(AbstractKOHModel):
         thetas, ells, lambdas = GPJAX_params
         return gpx.kernels.RBF(
                 active_dims=[0],
-                lengthscale=jnp.array(ells[3]),
+                lengthscale=jnp.array(ells[6]),
                 variance=jnp.array(1/lambdas[1])
             )
     
@@ -67,8 +77,14 @@ class Model(AbstractKOHModel):
         logprior += (3-1)*jnp.log(ells[1]) - 0.5*ells[1]
         # % Prior for ell_eta_2 ~ GAM(3,0.5)
         logprior += (3-1)*jnp.log(ells[2]) - 0.5*ells[2]
+        # % Prior for ell_eta_3 ~ GAM(3,0.5)
+        logprior += (3-1)*jnp.log(ells[3]) - 0.5*ells[3]
+        # % Prior for ell_eta_4 ~ GAM(3,0.5)
+        logprior += (3-1)*jnp.log(ells[4]) - 0.5*ells[4]
+        # % Prior for ell_eta_5 ~ GAM(3,0.5)
+        logprior += (3-1)*jnp.log(ells[5]) - 0.5*ells[5]
         # % Prior for ell_delta_0 ~ GAM(2,1)
-        logprior += (3-1)*jnp.log(ells[3]) - 3*ells[3]
+        logprior += (3-1)*jnp.log(ells[6]) - 3*ells[6]
 
         ####### lambda #######
         # % Prior for lambda_eta
