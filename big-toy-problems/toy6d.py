@@ -1,11 +1,11 @@
 import os
 
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from jax import jit, grad
 
 import mici
-import arviz
+# import arviz
 
 from models import toy6d as KOHmodel
 from data.dataloader import DataLoader
