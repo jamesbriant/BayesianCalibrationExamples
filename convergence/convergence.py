@@ -16,6 +16,8 @@ from kohgpjax.mappings import mapRto01, map01toR, mapRto0inf, map0inftoR
 # python path/to/convergence.py 100 100 dynamic
 # or
 # python path/to/convergence.py 100 100 static 3
+# or
+# python path/to/convergence.py 100 100 GRWM
 
 def main(n_warm_up_iter, n_main_iter, hmc_mode, n_steps=None):
     current_file_dir = Path(__file__).resolve().parent
@@ -88,6 +90,8 @@ def main(n_warm_up_iter, n_main_iter, hmc_mode, n_steps=None):
 
     def grad_neg_log_pos_dens(x):
         return np.asarray(grad_neg_log_posterior_density(x))
+    if hmc_mode == 'GRWM':
+        grad_neg_log_pos_dens = lambda q: q * 0
 
     ##### Mici #####
     system = mici.systems.EuclideanMetricSystem(
@@ -103,13 +107,17 @@ def main(n_warm_up_iter, n_main_iter, hmc_mode, n_steps=None):
     rng = np.random.default_rng(seed)
 
     ##### Mici sampler and adapters #####
-    if hmc_mode == 'dynamic':
+    acceptance_rate = 0.8
+    if hmc_mode == 'GRWM':
+        sampler = mici.samplers.StaticMetropolisHMC(system, integrator, rng, n_step=1)
+        acceptance_rate = 0.234
+    elif hmc_mode == 'dynamic':
         sampler = mici.samplers.DynamicMultinomialHMC(system, integrator, rng)
     else:
         sampler = mici.samplers.StaticMetropolisHMC(system, integrator, rng, n_step=n_steps)
 
     adapters = [
-        mici.adapters.DualAveragingStepSizeAdapter(0.8),
+        mici.adapters.DualAveragingStepSizeAdapter(acceptance_rate),
         mici.adapters.OnlineCovarianceMetricAdapter()
     ]
 
@@ -167,6 +175,8 @@ if __name__ == '__main__':
     hmc_mode = sys.argv[3]
     if hmc_mode == 'dynamic':
         sampler_name = 'dynamic'
+    elif hmc_mode == 'GRWM':
+        sampler_name = 'GRWM'
     elif hmc_mode == 'static':
         n_steps = int(sys.argv[4])
         sampler_name = f'static-{n_steps}'
