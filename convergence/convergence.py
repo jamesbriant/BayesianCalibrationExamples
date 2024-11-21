@@ -5,7 +5,7 @@ import numpy as np
 from jax import jit, grad
 import mici
 
-from models import toymodel as KOHmodel
+from models import toymodel_sin as KOHmodel
 from data.dataloader import DataLoader
 from kohgpjax.mappings import mapRto01, map01toR, mapRto0inf, map0inftoR
 
