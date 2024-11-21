@@ -108,7 +108,7 @@ def generate_sim_and_obs(
     b = [110, -5.4, -3.6, 110, 550, 165]
     design = np.zeros((n_runs, 6))
     for i in range(len(theta_true)):
-        t = np.linspace(a[i], b[i]-1, n_runs, endpoint=True) + np.random.rand(n_runs)*(b[i]-1-a[i])/n_runs
+        t = np.linspace(a[i], b[i], n_runs, endpoint=False) + np.random.rand(n_runs)*(b[i]-a[i])/n_runs
         design[:, i] = np.random.permutation(t)
 
     # run the simulations and save data to file
@@ -132,7 +132,7 @@ if __name__ == '__main__':
     obs_std = 20
     n_obs = 600
     n_sim = 250
-    n_runs = 5
+    n_runs = 50
 
     print(f"Generating observations and running {n_runs} simulations.")
 

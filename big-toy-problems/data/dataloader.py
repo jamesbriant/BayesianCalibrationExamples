@@ -10,16 +10,28 @@ class DataLoader:
     ):
         ## Load simulations
         self.xc = np.empty((0,1))
-        self.tc = np.empty((0,2))
         self.yc = np.empty((0,1))
+
+        initialize = True
 
         files = os.listdir(data_comp_dir)
         for file in files:
             if file.startswith("sim_") and file.endswith(".npy"):
-                t1 = float(file.split("_")[1])
-                t2 = float(file.split("_")[2].split(".n")[0])
+                filename_parts = file.split("_")
+                n_calib_params = len(filename_parts)-1
 
-                data_comp = np.load(data_comp_dir + file)
+                if initialize:
+                    self.tc = np.empty((0, n_calib_params))
+                    initialize = False
+
+                ts = []
+                for t in range(n_calib_params):
+                    if t+2 < n_calib_params:
+                        ts.append(float(filename_parts[t+1]))
+                    else:
+                        ts.append(float(filename_parts[t+1].split(".n")[0]))
+
+                data_comp = np.load(os.path.join(data_comp_dir, file))
                 n_sim_outputs = data_comp.shape[0]
 
                 self.xc = np.vstack((
@@ -29,7 +41,7 @@ class DataLoader:
                 self.tc = np.vstack((
                     self.tc, 
                     np.repeat(
-                        np.array([t1, t2]).reshape(1, 2),
+                        np.array(ts).reshape(1, n_calib_params),
                         n_sim_outputs, 
                         axis=0
                     )
@@ -40,7 +52,7 @@ class DataLoader:
                 ))
 
         ## Load observations
-        obs = np.load(data_field_dir + "obs.npy")
+        obs = np.load(os.path.join(data_field_dir, "obs.npy"))
         self.xf = obs[:, 0].reshape(-1, 1)
         self.yf = obs[:, 1].reshape(-1, 1)
 
