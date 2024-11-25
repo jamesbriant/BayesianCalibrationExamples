@@ -172,8 +172,8 @@ integrator = mici.integrators.LeapfrogIntegrator(system)
 
 seed = 1234
 n_chain = 1
-n_warm_up_iter = 800
-n_main_iter = 500
+n_warm_up_iter = 300
+n_main_iter = 300
 rng = np.random.default_rng(seed)
 
 ##### Mici sampler and adapters #####
