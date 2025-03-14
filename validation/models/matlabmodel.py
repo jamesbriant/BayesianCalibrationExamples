@@ -7,7 +7,7 @@ import jax.numpy as jnp
 import gpjax as gpx
 from kohgpjax.base import AbstractKOHModel
 
-from timings.MATLAB_mappings import ell2rho
+from MATLAB_mappings import ell2rho
 
 class MatlabModel(AbstractKOHModel):
     def k_eta(self, GPJAX_params) -> gpx.kernels.AbstractKernel:
