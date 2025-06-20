@@ -3,7 +3,6 @@ from jax import config
 config.update("jax_enable_x64", True)
 
 import arviz
-import cola
 import gpjax as gpx
 from gpjax.distributions import GaussianDistribution
 import jax
@@ -15,7 +14,6 @@ from kohgpjax.parameters import (
     ModelParameterPriorDict,
     ModelParameters,
 )
-
 import matplotlib.pyplot as plt
 import mici
 import numpy as np
@@ -30,12 +28,11 @@ from plotting import (
     plot_sim_sample,
 )
 
-file_name = "sin-a"
+file_name = "sin-ab"
 
 print("GPJax version:", gpx.__version__)
 print("KOHGPJax version:", kgx.__version__)
 print("JAX Device:", jax.devices())
-
 
 from data.true_funcs import (
     discrepancy,
@@ -48,14 +45,14 @@ TP = TrueParams()
 
 
 def main():
-    DATAFIELD = np.loadtxt("data/obs-a.csv", delimiter=",", dtype=np.float32)
-    DATACOMP = np.loadtxt("data/sim-a.csv", delimiter=",", dtype=np.float32)
+    DATAFIELD = np.loadtxt("data/obs-ab.csv", delimiter=",", dtype=np.float32)
+    DATACOMP = np.loadtxt("data/sim-ab.csv", delimiter=",", dtype=np.float32)
 
     yf = jnp.reshape(DATAFIELD[:, 0], (-1, 1)).astype(jnp.float64)
     yc = jnp.reshape(DATACOMP[:, 0], (-1, 1)).astype(jnp.float64)
     xf = jnp.reshape(DATAFIELD[:, 1], (-1, 1)).astype(jnp.float64)
     xc = jnp.reshape(DATACOMP[:, 1], (-1, 1)).astype(jnp.float64)
-    tc = jnp.reshape(DATACOMP[:, 2], (-1, 1)).astype(jnp.float64)
+    tc = jnp.reshape(DATACOMP[:, 2:], (-1, 2)).astype(jnp.float64)
 
     # normalising the output is not required provided they are all of a similar scale.
     # But subtracting the mean is sensible as our GP priors assume zero mean.
@@ -92,7 +89,7 @@ def main():
     plt.close(fig)
 
     # Define the model
-    class Model(KOHModel):
+    class Model(kgx.KOHModel):
         def k_eta(self, params_constrained) -> gpx.kernels.AbstractKernel:
             params = params_constrained["eta"]
             return gpx.kernels.ProductKernel(
@@ -105,6 +102,10 @@ def main():
                     gpx.kernels.RBF(
                         active_dims=[1],
                         lengthscale=jnp.array(params["lengthscales"]["theta_0"]),
+                    ),
+                    gpx.kernels.RBF(
+                        active_dims=[2],
+                        lengthscale=jnp.array(params["lengthscales"]["theta_1"]),
                     ),
                 ]
             )
@@ -129,11 +130,18 @@ def main():
     A0 = (0.25 - tmin[0]) / (tmax[0] - tmin[0])
     B0 = (0.45 - tmin[0]) / (tmax[0] - tmin[0])
     print(f"A0: {A0}, B0: {B0}")
+    A1 = (-3.3 - tmin[1]) / (tmax[1] - tmin[1])
+    B1 = (-3.0 - tmin[1]) / (tmax[1] - tmin[1])
+    print(f"A1: {A1}, B1: {B1}")
     prior_dict: ModelParameterPriorDict = {
         "thetas": {
             "theta_0": ParameterPrior(
                 dist.Uniform(low=A0, high=B0),
                 name="theta_0",
+            ),
+            "theta_1": ParameterPrior(
+                dist.Uniform(low=A1, high=B1),
+                name="theta_1",
             ),
         },
         "eta": {
@@ -151,6 +159,10 @@ def main():
                 "theta_0": ParameterPrior(
                     dist.Gamma(concentration=2.0, rate=3.5),
                     name="eta_lengthscale_theta_0",
+                ),
+                "theta_1": ParameterPrior(
+                    dist.Gamma(concentration=2.0, rate=3.5),
+                    name="eta_lengthscale_theta_1",
                 ),
             },
         },
@@ -212,10 +224,8 @@ def main():
     seed = 1234
     n_chain = 2
     n_process = 1  # only 1 works on MacOS
-    # n_warm_up_iter = 60
-    # n_main_iter = 80
-    n_warm_up_iter = 25
-    n_main_iter = 10
+    n_warm_up_iter = 60
+    n_main_iter = 80
     rng = np.random.default_rng(seed)
 
     ##### Mici sampler and adapters #####
@@ -293,9 +303,10 @@ def main():
         tracer_index_dict=tracer_index_dict,
         true_values={
             "theta_0": TP.a,
+            "theta_1": TP.b,
             "epsilon_precision": 1 / TP.obs_var,
         },
-        figsize=(9, 20),
+        figsize=(9, 2 * (7)),
     )
     plt.savefig(f"figures/{file_name}-trace.png", dpi=300)
     plt.close()
@@ -308,14 +319,14 @@ def main():
     thetas = np.array(
         [params_transformed_flat[var] for var in prior_dict["thetas"].keys()]
     )
-    theta_vec = jnp.array([thetas[0], TP.b, TP.c, TP.d, TP.e])
+    theta_vec = jnp.array([thetas[0], thetas[1], TP.c, TP.d, TP.e])
     theta_arr = jnp.tile(theta_vec, (xpred.shape[0], 1))
     print(theta_arr.shape)
 
     x_test = np.hstack((xpred, theta_arr))
     print(x_test.shape)
 
-    x_test_GP = x_test[:, [0, 2]]
+    x_test_GP = x_test[:, [0, 2, 3]]
     print(x_test_GP.shape)
 
     dataset = kohdataset.get_dataset(thetas.reshape(1, -1))
@@ -341,7 +352,7 @@ def main():
         thetas=thetas,
         thetas_full=theta_arr,
         eta=eta,
-        GP_eta=eta_pred,
+        gaussian_distribution=eta_pred,
     )
     plt.savefig(f"figures/{file_name}-eta-posterior.png", dpi=300)
     plt.close()
