@@ -89,7 +89,7 @@ def main():
     plt.close(fig)
 
     # Define the model
-    class Model(kgx.KOHModel):
+    class Model(KOHModel):
         def k_eta(self, params_constrained) -> gpx.kernels.AbstractKernel:
             params = params_constrained["eta"]
             return gpx.kernels.ProductKernel(
