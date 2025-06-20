@@ -5,6 +5,7 @@ test/
 timings/
 validation/
 
+chains/
 HPC/
 *.png
 

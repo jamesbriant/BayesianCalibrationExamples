@@ -129,6 +129,7 @@ def plot_GP(
     ax: plt.Axes,
     x: np.ndarray,
     distribution: GaussianDistribution,
+    y_translation: float = 0.0,
     label: str = "GP",
     alpha: float = 0.5,
     **kwargs,
@@ -148,11 +149,11 @@ def plot_GP(
     cov = distribution.variance
     sd = jnp.sqrt(cov)
 
-    ax.plot(x, mean, label=label, **kwargs)
+    ax.plot(x, mean + y_translation, label=label, **kwargs)
     ax.fill_between(
         x,
-        mean - 1.96 * sd,
-        mean + 1.96 * sd,
+        y_translation + mean - 1.96 * sd,
+        y_translation + mean + 1.96 * sd,
         alpha=alpha,
         **kwargs,
     )
@@ -167,6 +168,7 @@ def plot_f_eta(
     thetas_full: np.ndarray,
     eta: Callable,
     GP_eta: GaussianDistribution,
+    y_translation: float = 0.0,
 ) -> tuple[plt.Figure, plt.Axes]:
     fig, ax = plt.subplots(nrows=1, ncols=1)
 
@@ -174,11 +176,12 @@ def plot_f_eta(
     x_calc = x_full[:, [0, 1]]
     label = [f"{theta:.2f}" for theta in thetas]
 
-    ax.plot(x_plot, eta(x_calc, thetas_full), label=rf"$\eta({', '.join(label)})$")
+    ax.plot(x_plot, eta(x_calc, thetas_full), label=rf"$\eta(x, {', '.join(label)})$")
     plot_GP(
         ax,
         x_GP,
         GP_eta,
+        y_translation=y_translation,
         label=r"$f_\eta(x)$",
         color="orange",
     )
@@ -199,6 +202,7 @@ def plot_f_zeta(
     GP_zeta_epsilon: GaussianDistribution,
     scatter_xf: np.ndarray,
     scatter_yf: np.ndarray,
+    y_translation: float = 0.0,
 ) -> tuple[plt.Figure, plt.Axes]:
     fig, ax = plt.subplots(nrows=1, ncols=1)
 
@@ -211,33 +215,19 @@ def plot_f_zeta(
         ax,
         x_GP,
         GP_zeta,
+        y_translation=y_translation,
         label=r"$f_\zeta(x)$ GP reconstruction",
         color="orange",
     )
-    # ax.plot(x_test_GP[:, 0], obs_pred_m, label=r"$f_{\zeta+\epsilon}(x)$")
-    # ax.fill_between(
-    #     x_test_GP[:, 0],
-    #     obs_pred_m - 1.96 * obs_pred_sd,
-    #     obs_pred_m + 1.96 * obs_pred_sd,
-    #     alpha=0.3,
-    #     color="orange",
-    # )
 
     ax = plot_GP(
         ax,
         x_GP,
         GP_zeta_epsilon,
+        y_translation=y_translation,
         label=r"$f_{\zeta+\epsilon}(x)$ GP reconstruction",
         color="green",
     )
-    # ax.plot(x_test_GP[:, 0], zeta_pred_m, label=r"$f_{\zeta}(x)$")
-    # ax.fill_between(
-    #     x_test_GP[:, 0],
-    #     zeta_pred_m - 1.96 * zeta_pred_sd,
-    #     zeta_pred_m + 1.96 * zeta_pred_sd,
-    #     alpha=0.3,
-    #     color="green",
-    # )
 
     ax.scatter(scatter_xf, scatter_yf, label="Observations")
 

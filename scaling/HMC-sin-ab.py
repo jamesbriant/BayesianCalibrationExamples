@@ -175,7 +175,10 @@ def main():
             },
             "lengthscales": {
                 "x_0": ParameterPrior(
-                    dist.Gamma(concentration=4.0, rate=2.0),
+                    # dist.Gamma(concentration=4.0, rate=2.0),
+                    dist.Gamma(
+                        concentration=5.0, rate=0.3
+                    ),  # encourage long value => linear discrepancy
                     name="delta_lengthscale_x_0",
                 ),
             },
@@ -183,7 +186,8 @@ def main():
         "epsilon": {  # This is required despite not appearing in the model
             "variances": {
                 "precision": ParameterPrior(
-                    dist.Gamma(concentration=12.0, rate=0.025),
+                    # dist.Gamma(concentration=12.0, rate=0.025),
+                    dist.Normal(loc=420.0, scale=10.0),  # Much more concentrated
                     name="epsilon_precision",
                 ),
             },
@@ -281,113 +285,121 @@ def main():
         prior_tree, params_transformed_flat.values()
     )
 
-    print(arviz.summary(traces_transformed))
-
-    axes = plot_pairwise_samples(
-        traces_transformed,
-        var_names=[
-            *(prior_dict["thetas"].keys()),
-            "eta_precision",
-            "eta_lengthscale_x_0",
-            "delta_precision",
-            "delta_lengthscale_x_0",
-            "epsilon_precision",
-        ],
+    # Save the chains as csv files
+    arviz.convert_to_inference_data(traces).to_netcdf(
+        f"chains/{file_name}-W{n_warm_up_iter}-N{n_main_iter}-raw.nc"
     )
-    plt.savefig(f"figures/{file_name}-pairs.png", dpi=300)
-    plt.close()
-
-    axes = plot_posterior_chains_with_priors(
-        traces_transformed,
-        model_parameters=model_parameters,
-        tracer_index_dict=tracer_index_dict,
-        true_values={
-            "theta_0": TP.a,
-            "theta_1": TP.b,
-            "epsilon_precision": 1 / TP.obs_var,
-        },
-        figsize=(9, 2 * (7)),
+    arviz.convert_to_inference_data(traces_transformed).to_netcdf(
+        f"chains/{file_name}-W{n_warm_up_iter}-N{n_main_iter}.nc"
     )
-    plt.savefig(f"figures/{file_name}-trace.png", dpi=300)
-    plt.close()
 
-    x0_pred = np.linspace(0, 4, 1000)
-    x1_pred = np.zeros_like(x0_pred)
-    xpred = np.vstack((x0_pred, x1_pred)).T
-    print(xpred.shape)
+    # print(arviz.summary(traces_transformed))
 
-    thetas = np.array(
-        [params_transformed_flat[var] for var in prior_dict["thetas"].keys()]
-    )
-    theta_vec = jnp.array([thetas[0], thetas[1], TP.c, TP.d, TP.e])
-    theta_arr = jnp.tile(theta_vec, (xpred.shape[0], 1))
-    print(theta_arr.shape)
+    # axes = plot_pairwise_samples(
+    #     traces_transformed,
+    #     var_names=[
+    #         *(prior_dict["thetas"].keys()),
+    #         "eta_precision",
+    #         "eta_lengthscale_x_0",
+    #         "delta_precision",
+    #         "delta_lengthscale_x_0",
+    #         "epsilon_precision",
+    #     ],
+    # )
+    # plt.savefig(f"figures/{file_name}-pairs.png", dpi=300)
+    # plt.close()
 
-    x_test = np.hstack((xpred, theta_arr))
-    print(x_test.shape)
+    # axes = plot_posterior_chains_with_priors(
+    #     traces_transformed,
+    #     model_parameters=model_parameters,
+    #     tracer_index_dict=tracer_index_dict,
+    #     true_values={
+    #         "theta_0": TP.a,
+    #         "theta_1": TP.b,
+    #         "epsilon_precision": 1 / TP.obs_var,
+    #     },
+    #     figsize=(9, 2 * (7)),
+    # )
+    # plt.savefig(f"figures/{file_name}-trace.png", dpi=300)
+    # plt.close()
 
-    x_test_GP = x_test[:, [0, 2, 3]]
-    print(x_test_GP.shape)
+    # x0_pred = np.linspace(0, 4, 1000)
+    # x1_pred = np.zeros_like(x0_pred)
+    # xpred = np.vstack((x0_pred, x1_pred)).T
+    # print(xpred.shape)
 
-    dataset = kohdataset.get_dataset(thetas.reshape(1, -1))
-    print(dataset)
+    # thetas = np.array(
+    #     [params_transformed_flat[var] for var in prior_dict["thetas"].keys()]
+    # )
+    # theta_vec = jnp.array([thetas[0], thetas[1], TP.c, TP.d, TP.e])
+    # theta_arr = jnp.tile(theta_vec, (xpred.shape[0], 1))
+    # print(theta_arr.shape)
 
-    # Posterior GPs
-    GP_posterior = model.GP_posterior(params_transformed)
+    # x_test = np.hstack((xpred, theta_arr))
+    # print(x_test.shape)
 
-    eta_pred = GP_posterior.predict_eta(x_test_GP, dataset)
-    zeta_pred = GP_posterior.predict_zeta(x_test_GP, dataset)
-    obs_pred = GP_posterior.predict_obs(x_test_GP, dataset)
+    # x_test_GP = x_test[:, [0, 2, 3]]
+    # print(x_test_GP.shape)
 
-    eta_pred_m = eta_pred.mean
-    eta_pred_cov = eta_pred.covariance_matrix
+    # dataset = kohdataset.get_dataset(thetas.reshape(1, -1))
+    # print(dataset)
 
-    zeta_pred_m = zeta_pred.mean
-    zeta_pred_cov = zeta_pred.covariance_matrix
+    # # Posterior GPs
+    # GP_posterior = model.GP_posterior(params_transformed)
 
-    # Simulator emulator
-    fig, ax = plot_f_eta(
-        x_full=x_test,
-        x_GP=x_test_GP[:, 0],
-        thetas=thetas,
-        thetas_full=theta_arr,
-        eta=eta,
-        gaussian_distribution=eta_pred,
-    )
-    plt.savefig(f"figures/{file_name}-eta-posterior.png", dpi=300)
-    plt.close()
+    # eta_pred = GP_posterior.predict_eta(x_test_GP, dataset)
+    # zeta_pred = GP_posterior.predict_zeta(x_test_GP, dataset)
+    # obs_pred = GP_posterior.predict_obs(x_test_GP, dataset)
 
-    # True process
-    fig, ax = plot_f_zeta(
-        x_full=x_test,
-        x_GP=x_test_GP[:, 0],
-        zeta=zeta,
-        GP_zeta=zeta_pred,
-        GP_zeta_epsilon=obs_pred,
-        scatter_xf=kohdataset.Xf,
-        scatter_yf=kohdataset.z
-        + ycmean,  # Add the mean of yc to center the observations
-    )
-    plt.savefig(f"figures/{file_name}-zeta-posterior.png", dpi=300)
-    plt.close(fig)
+    # eta_pred_m = eta_pred.mean
+    # eta_pred_cov = eta_pred.covariance_matrix
 
-    # Model discrepancy
-    delta_gp_m = zeta_pred_m - eta_pred_m
-    delta_gp_cov = zeta_pred_cov + eta_pred_cov
+    # zeta_pred_m = zeta_pred.mean
+    # zeta_pred_cov = zeta_pred.covariance_matrix
 
-    fig, ax = plot_f_delta(
-        x_full=x_test,
-        x_GP=x_test_GP[:, 0],
-        thetas=thetas,
-        thetas_full=theta_arr,
-        zeta=zeta,
-        eta=eta,
-        delta=discrepancy,
-        delta_gp_mean=delta_gp_m,
-        delta_gp_cov=delta_gp_cov,
-    )
-    plt.savefig(f"figures/{file_name}-discrepancy-posterior.png", dpi=300)
-    plt.close()
+    # # Simulator emulator
+    # fig, ax = plot_f_eta(
+    #     x_full=x_test,
+    #     x_GP=x_test_GP[:, 0],
+    #     thetas=thetas,
+    #     thetas_full=theta_arr,
+    #     eta=eta,
+    #     gaussian_distribution=eta_pred,
+    # )
+    # plt.savefig(f"figures/{file_name}-eta-posterior.png", dpi=300)
+    # plt.close()
+
+    # # True process
+    # fig, ax = plot_f_zeta(
+    #     x_full=x_test,
+    #     x_GP=x_test_GP[:, 0],
+    #     zeta=zeta,
+    #     GP_zeta=zeta_pred,
+    #     GP_zeta_epsilon=obs_pred,
+    #     scatter_xf=kohdataset.Xf,
+    #     scatter_yf=kohdataset.z
+    #     + ycmean,  # Add the mean of yc to center the observations
+    # )
+    # plt.savefig(f"figures/{file_name}-zeta-posterior.png", dpi=300)
+    # plt.close(fig)
+
+    # # Model discrepancy
+    # delta_gp_m = zeta_pred_m - eta_pred_m
+    # delta_gp_cov = zeta_pred_cov + eta_pred_cov
+
+    # fig, ax = plot_f_delta(
+    #     x_full=x_test,
+    #     x_GP=x_test_GP[:, 0],
+    #     thetas=thetas,
+    #     thetas_full=theta_arr,
+    #     zeta=zeta,
+    #     eta=eta,
+    #     delta=discrepancy,
+    #     delta_gp_mean=delta_gp_m,
+    #     delta_gp_cov=delta_gp_cov,
+    # )
+    # plt.savefig(f"figures/{file_name}-discrepancy-posterior.png", dpi=300)
+    # plt.close()
 
 
 if __name__ == "__main__":
