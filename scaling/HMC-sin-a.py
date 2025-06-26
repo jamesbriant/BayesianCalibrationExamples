@@ -36,8 +36,14 @@ def main():
     n_processes: int = args.n_processes
     max_tree_depth: int = args.max_tree_depth
 
-    DATAFIELD = np.loadtxt("data/obs-a.csv", delimiter=",", dtype=np.float32)
-    DATACOMP = np.loadtxt("data/sim-a.csv", delimiter=",", dtype=np.float32)
+    data_file_name = file_name.split("-")[1]
+
+    DATAFIELD = np.loadtxt(
+        f"data/obs-{data_file_name}.csv", delimiter=",", dtype=np.float32
+    )
+    DATACOMP = np.loadtxt(
+        f"data/sim-{data_file_name}.csv", delimiter=",", dtype=np.float32
+    )
 
     yf = jnp.reshape(DATAFIELD[:, 0], (-1, 1)).astype(jnp.float64)
     yc = jnp.reshape(DATACOMP[:, 0], (-1, 1)).astype(jnp.float64)
