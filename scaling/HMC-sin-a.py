@@ -13,6 +13,7 @@ import mici
 import numpy as np
 import os
 from models.sin_a import Model, get_ModelParameterPriorDict
+from freethreading import process_workers
 
 file_name = "sin-a"
 
@@ -118,7 +119,7 @@ def main():
         n_main_iter,
         [init_states] * n_chain,
         adapters=adapters,
-        n_process=n_processes,
+        **process_workers(n_processes),
         trace_funcs=[trace_func],
         monitor_stats=("n_step", "accept_stat", "step_size", "diverging"),
     )
