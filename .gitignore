@@ -5,9 +5,12 @@ test/
 timings/
 validation/
 
+figures/
 chains/
 HPC/
 *.png
+*.csv
+*.nc
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
