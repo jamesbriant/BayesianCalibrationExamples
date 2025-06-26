@@ -14,17 +14,19 @@ from true_funcs import (
 x0_range = (0.02, 3.98)
 x1_range = (-0.92, 2.98)
 
-t_ranges = np.array([               # calibration parameter ranges
-    [0.25, 0.45],                   # theta0
-    # [-3.3, -3.0],                   # theta1
-    # [0.4, 0.6],                     # theta2
-    # [0.8, 1.2],                     # theta3
-    # [0.5, 2.0],                     # theta4
-])
+t_ranges = np.array(
+    [  # calibration parameter ranges
+        [0.25, 0.45],  # theta0
+        # [-3.3, -3.0],                   # theta1
+        # [0.8, 1.2],                     # theta2
+        # [0.5, 2.0],                     # theta3
+        # [0.4, 0.6],                     # theta4
+    ]
+)
 n_calib_params = t_ranges.shape[0]  # number of calibration parameters
-r = 10*n_calib_params               # number of simulation runs
-n_sim = 50                          # number of simulation output points
-n_obs = 100                         # number of observation points
+r = 10 * n_calib_params  # number of simulation runs
+n_sim = 50  # number of simulation output points
+n_obs = 100  # number of observation points
 
 
 ##### RUN SIMULATOR ######
@@ -35,29 +37,33 @@ t1, t2, t3, t4 = TP.b, TP.c, TP.d, TP.e
 
 # Generate Latin hypercube samples for the calibration parameters
 sampler = LatinHypercube(d=n_calib_params)
-sample = sampler.random(n=r) # sample.shape = (r, d)
-for i in range(n_calib_params): # scale sample onto [theta_ranges[i, 0], theta_ranges[i, 1]]
+sample = sampler.random(n=r)  # sample.shape = (r, d)
+for i in range(
+    n_calib_params
+):  # scale sample onto [theta_ranges[i, 0], theta_ranges[i, 1]]
     sample[:, i] = sample[:, i] * (t_ranges[i, 1] - t_ranges[i, 0]) + t_ranges[i, 0]
 
 x0_sim_grid, t0_sim_grid = np.meshgrid(x0_sim, sample[:, 0])
 x0_sim_grid = x0_sim_grid.flatten()
 t0_sim_grid = t0_sim_grid.flatten()
 
-X_sim = np.array([
-    x0_sim_grid,
-    np.repeat(x1_sim, r*n_sim),
-    t0_sim_grid,
-    np.repeat(t1, r*n_sim),
-    np.repeat(t2, r*n_sim),
-    np.repeat(t3, r*n_sim),
-    np.repeat(t4, r*n_sim),
-]).T
+X_sim = np.array(
+    [
+        x0_sim_grid,
+        np.repeat(x1_sim, r * n_sim),
+        t0_sim_grid,
+        np.repeat(t1, r * n_sim),
+        np.repeat(t2, r * n_sim),
+        np.repeat(t3, r * n_sim),
+        np.repeat(t4, r * n_sim),
+    ]
+).T
 
 eta_output = eta(X_sim[:, :2], X_sim[:, 2:])
 np.savetxt(
     "sim-a.csv",
-    np.column_stack((eta_output, X_sim[:, [0, 2]])), # extract x0 and t0
-    delimiter=',',
+    np.column_stack((eta_output, X_sim[:, [0, 2]])),  # extract x0 and t0
+    delimiter=",",
 )
 
 ##### GENERATE OBSERVATIONS ######
@@ -68,16 +74,18 @@ x0_field_grid, x1_field_grid = np.meshgrid(x0_field, x1_field)
 x0_field_grid = x0_field_grid.flatten()
 x1_field_grid = x1_field_grid.flatten()
 
-X_field = np.array([
-    x0_field_grid,
-    x1_field_grid,
-]).T
+X_field = np.array(
+    [
+        x0_field_grid,
+        x1_field_grid,
+    ]
+).T
 
 obs = zeta(X_field)
 obs += np.random.normal(0, np.sqrt(TP.obs_var), n_obs)
 
 np.savetxt(
     "obs-a.csv",
-    np.column_stack((obs, X_field[:, 0])), # extract x0
-    delimiter=',',
+    np.column_stack((obs, X_field[:, 0])),  # extract x0
+    delimiter=",",
 )
