@@ -2,7 +2,6 @@ from jax import config
 
 config.update("jax_enable_x64", True)
 
-import argparse
 import arviz
 import gpjax as gpx
 import jax
@@ -14,6 +13,7 @@ import numpy as np
 import os
 from models.sin_a import Model, get_ModelParameterPriorDict
 from freethreading import process_workers
+from argparser import parse_args
 
 file_name = "sin-a"
 
@@ -179,24 +179,6 @@ def save_chains_to_netcdf(
     arviz.convert_to_inference_data(traces_transformed).to_netcdf(
         f"chains/{file_name}-W{n_warm_up_iter}-N{n_main_iter}.nc"
     )
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(description="Run the MCMC posterior sampling.")
-    parser.add_argument("W", type=int, help="Number of warm-up iterations.")
-    parser.add_argument("N", type=int, help="Number of main iterations.")
-    parser.add_argument("--seed", type=int, default=1234, help="Random seed.")
-    parser.add_argument("--n_chain", type=int, default=2, help="Number of MCMC chains.")
-    parser.add_argument(
-        "--n_processes", type=int, default=1, help="Number of processes to use."
-    )
-    parser.add_argument(
-        "--max_tree_depth",
-        type=int,
-        default=5,
-        help="Maximum tree depth for the sampler.",
-    )
-    return parser.parse_args()
 
 
 if __name__ == "__main__":
