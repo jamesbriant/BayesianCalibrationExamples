@@ -12,9 +12,9 @@ from kohgpjax.parameters import ModelParameters
 import mici
 import numpy as np
 import os
-from models.sin_a import Model, get_ModelParameterPriorDict
+from models.sin_abcd import Model, get_ModelParameterPriorDict
 
-file_name = "sin-a"
+file_name = "sin-abcd"
 
 print("GPJax version:", gpx.__version__)
 print("KOHGPJax version:", kgx.__version__)
@@ -35,14 +35,14 @@ def main():
     n_processes: int = args.n_processes
     max_tree_depth: int = args.max_tree_depth
 
-    DATAFIELD = np.loadtxt("data/obs-a.csv", delimiter=",", dtype=np.float32)
-    DATACOMP = np.loadtxt("data/sim-a.csv", delimiter=",", dtype=np.float32)
+    DATAFIELD = np.loadtxt("data/obs-ab.csv", delimiter=",", dtype=np.float32)
+    DATACOMP = np.loadtxt("data/sim-ab.csv", delimiter=",", dtype=np.float32)
 
     yf = jnp.reshape(DATAFIELD[:, 0], (-1, 1)).astype(jnp.float64)
     yc = jnp.reshape(DATACOMP[:, 0], (-1, 1)).astype(jnp.float64)
     xf = jnp.reshape(DATAFIELD[:, 1], (-1, 1)).astype(jnp.float64)
     xc = jnp.reshape(DATACOMP[:, 1], (-1, 1)).astype(jnp.float64)
-    tc = jnp.reshape(DATACOMP[:, 2], (-1, 1)).astype(jnp.float64)
+    tc = jnp.reshape(DATACOMP[:, 2:], (-1, 4)).astype(jnp.float64)
 
     # normalising the output is not required provided they are all of a similar scale.
     # But subtracting the mean is sensible as our GP priors assume zero mean.
@@ -58,6 +58,9 @@ def main():
 
     tminmax = {
         "theta_0": (tmin[0], tmax[0]),
+        "theta_1": (tmin[1], tmax[1]),
+        "theta_2": (tmin[2], tmax[2]),
+        "theta_3": (tmin[3], tmax[3]),
     }
 
     field_dataset = gpx.Dataset(xf, yf_centered)

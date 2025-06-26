@@ -19,7 +19,7 @@ t_ranges = np.array(
         [0.25, 0.45],  # theta0
         [-3.3, -3.0],  # theta1
         [0.8, 1.2],  # theta2
-        # [0.5, 2.0],                     # theta3
+        # [0.6, 1.1],                     # theta3
         # [0.4, 0.6],                     # theta4
     ]
 )

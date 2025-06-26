@@ -1,10 +1,11 @@
-from typing import Callable
+from typing import Callable, Dict, Tuple
 
 import arviz
 import cola
 import cola.ops
 from gpjax.distributions import GaussianDistribution
 import jax.numpy as jnp
+from kohgpjax import KOHDataset
 from kohgpjax.parameters import ModelParameterPriorDict
 import matplotlib.pyplot as plt
 import numpy as np
@@ -29,25 +30,30 @@ plot_style = {
 
 
 def plot_sim_sample(
-    xf: np.ndarray,
-    yf: np.ndarray,
-    xc: np.ndarray,
-    yc: np.ndarray,
-    tc: np.ndarray,
+    kohdataset: KOHDataset,
+    tminmax: Dict[str, Tuple[float, float]],
+    ycmean: float,
     num_samples: int = 5,
 ) -> tuple[plt.Figure, plt.Axes]:
     """
     Plot a sample of the simulation data.
     Args:
-        xf: x-coordinates of the observations.
-        yf: y-coordinates of the observations.
-        xc: x-coordinates of the simulation data.
-        yc: y-coordinates of the simulation data.
-        tc: parameter values for the simulation data.
+        kohdataset: KOHDataset object containing the simulation data.
+        tminmax: dictionary containing the minimum and maximum values for each calibration parameter.
+        ycmean: mean value of the y-coordinates for the simulation data.
         num_samples: number of samples to plot.
     Returns:
         fig: matplotlib Figure object containing the plot.
     """
+    xf = np.array(kohdataset.Xf)
+    yf = np.array(kohdataset.z + ycmean)
+    xc = np.array(kohdataset.Xc[:, 0])
+    yc = np.array(kohdataset.y + ycmean)
+    tc = np.array(kohdataset.Xc[:, 1:])
+    # scale tc from [0, 1] to the original range
+    for i, (_, (tmin, tmax)) in enumerate(tminmax.items()):
+        tc[:, i] = tc[:, i] * (tmax - tmin) + tmin
+
     fig, ax = plt.subplots(1, 1)
 
     ax.scatter(xf, yf, label="Observations")
@@ -86,12 +92,13 @@ def plot_pairwise_samples(
 def plot_posterior_chains_with_priors(
     traces,
     model_parameters: ModelParameterPriorDict = None,
+    tminmax: Dict[str, Tuple[float, float]] = None,
     tracer_index_dict: dict[str, int] = None,
     true_values: dict[str, float] = None,
     figsize=(9, 14),
     plot_style=plot_style,
     **kwargs,
-):
+) -> plt.Axes:
     if true_values is not None:
         lines = [(name, {}, value) for name, value in true_values.items()]
     else:
@@ -109,15 +116,26 @@ def plot_posterior_chains_with_priors(
 
     if model_parameters is not None and tracer_index_dict is not None:
         for i in range(axes.shape[0]):
+            title = axes[i, 0].get_title()
+
             left, right = axes[i, 0].get_xlim()
             left, right = left * 0.9, right * 1.1
             x = np.linspace(left, right, 1000)
+            x_pdf = x
 
-            title = axes[i, 0].get_title()
+            # Transform the x-axis to a range suitable for the theta prior distributions
+            if title in tminmax:
+                tmin, tmax = tminmax[title]
+                x_pdf = (x_pdf - tmin) / (tmax - tmin)
+
             prior_dist = model_parameters.priors_flat[
                 tracer_index_dict[title]
             ].distribution
-            pdf = jnp.exp(prior_dist.log_prob(x))
+            pdf = jnp.exp(prior_dist.log_prob(x_pdf))
+
+            if title in tminmax:
+                print(prior_dist.low, prior_dist.high)
+                print(tmin, tmax)
 
             axes[i, 0].plot(x, pdf, color="red", linestyle="--", label="Prior")
             axes[i, 0].legend()
@@ -229,7 +247,7 @@ def plot_f_zeta(
         color="green",
     )
 
-    ax.scatter(scatter_xf, scatter_yf, label="Observations")
+    ax.scatter(scatter_xf, scatter_yf + y_translation, label="Observations")
 
     ax.legend()
     fig.suptitle("True process, observations and GP reconstruction of $\zeta$")
