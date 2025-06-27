@@ -60,7 +60,7 @@ X_sim = np.array(
         np.repeat(x1_sim, r * n_sim),
         t0_sim_grid,
         t1_sim_grid,
-        t1_sim_grid,
+        t2_sim_grid,
         np.repeat(t3, r * n_sim),
         np.repeat(t4, r * n_sim),
     ]

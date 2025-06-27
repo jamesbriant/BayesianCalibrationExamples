@@ -62,8 +62,8 @@ def get_ModelParameterPriorDict(
     A1 = (-3.3 - tmm1[0]) / (tmm1[1] - tmm1[0])
     B1 = (-3.0 - tmm1[0]) / (tmm1[1] - tmm1[0])
     print(f"A1: {A1}, B1: {B1}")
-    A2 = (-0.5 - tmm2[0]) / (tmm2[1] - tmm2[0])
-    B2 = (0.5 - tmm2[0]) / (tmm2[1] - tmm2[0])
+    A2 = (0.6 - tmm2[0]) / (tmm2[1] - tmm2[0])
+    B2 = (1.1 - tmm2[0]) / (tmm2[1] - tmm2[0])
     print(f"A2: {A2}, B2: {B2}")
 
     prior_dict: ModelParameterPriorDict = {
