@@ -1,16 +1,24 @@
 import json
+import os
+import argparse
 import jax.numpy as jnp
 import gpjax as gpx
 import kohgpjax as kgx
 import numpy as np
 
-def load_and_verify():
-    """Loads the newly structured data and verifies it by creating a KOHDataset."""
-    # Load data from JSON files
-    with open("control2/data/simulation_data.json", "r") as f:
-        sim_data = json.load(f)
-    with open("control2/data/observation_data.json", "r") as f:
-        obs_data = json.load(f)
+def load_and_verify(file_name, data_dir):
+    """Loads a specific dataset and verifies it by creating a KOHDataset."""
+    sim_file = os.path.join(data_dir, f"{file_name}_simulation.json")
+    obs_file = os.path.join(data_dir, f"{file_name}_observation.json")
+
+    try:
+        with open(sim_file, "r") as f:
+            sim_data = json.load(f)
+        with open(obs_file, "r") as f:
+            obs_data = json.load(f)
+    except FileNotFoundError as e:
+        print(f"Error: Could not find data files. {e}")
+        return
 
     # --- Prepare field data ---
     xf = jnp.array(obs_data["x_obs"])
@@ -21,23 +29,13 @@ def load_and_verify():
     x_grid = np.array(sim_data["x_grid"])
     simulations = sim_data["simulations"]
 
-    # Reconstruct the xc, tc, and yc arrays from the new structure
-    num_sim_runs = len(simulations)
+    xc_list, tc_list, yc_list = [], [], []
     num_grid_points = x_grid.shape[0]
 
-    xc_list = []
-    tc_list = []
-    yc_list = []
-
     for sim in simulations:
-        # Append the grid for each simulation run
         xc_list.append(x_grid)
-
-        # Extract theta values and repeat for each grid point
         theta_values = np.array(list(sim["theta"].values()))
         tc_list.append(np.tile(theta_values, (num_grid_points, 1)))
-
-        # Append the outputs
         yc_list.append(np.array(sim["output"]))
 
     xc = jnp.vstack(xc_list)
@@ -60,16 +58,19 @@ def load_and_verify():
     try:
         field_dataset = gpx.Dataset(X=xf, y=yf_centered)
         comp_dataset = gpx.Dataset(X=jnp.hstack([xc, tc_normalized]), y=yc_centered)
-
         koh_dataset = kgx.KOHDataset(field_dataset, comp_dataset)
 
-        print("Successfully created kohgpjax.KOHDataset object from the new data structure.")
+        print(f"Successfully verified dataset '{file_name}'.")
         print(f"Field dataset size: {field_dataset.n}")
         print(f"Computer model dataset size: {comp_dataset.n}")
-        print(f"Output dimension: {field_dataset.y.shape[1]}")
 
     except Exception as e:
-        print(f"An error occurred during KOHDataset creation: {e}")
+        print(f"An error occurred during KOHDataset creation for '{file_name}': {e}")
 
 if __name__ == "__main__":
-    load_and_verify()
+    parser = argparse.ArgumentParser(description="Verify a generated dataset.")
+    parser.add_argument("--file-name", type=str, required=True, help="Base name of the dataset to verify (e.g., sin_a)")
+    parser.add_argument("--data-dir", type=str, default="control2/data", help="Directory where the data is stored.")
+    args = parser.parse_args()
+
+    load_and_verify(args.file_name, args.data_dir)

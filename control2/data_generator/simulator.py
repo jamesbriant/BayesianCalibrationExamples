@@ -1,7 +1,6 @@
 import numpy as np
-from . import config
 
-def eta(x: np.ndarray, t: np.ndarray) -> np.ndarray:
+def eta(x: np.ndarray, t: np.ndarray, config) -> np.ndarray:
     """
     Computer model/simulator function.
     Handles generic control (x) and calibration (t) parameters and
@@ -10,6 +9,7 @@ def eta(x: np.ndarray, t: np.ndarray) -> np.ndarray:
     Args:
         x (np.ndarray): Control parameters, shape (n_points, n_control_params).
         t (np.ndarray): Calibration parameters, shape (n_points, n_calib_params).
+        config: A configuration module/object with parameter definitions.
 
     Returns:
         np.ndarray: Simulator output, shape (n_points, n_output_dims).
@@ -17,7 +17,7 @@ def eta(x: np.ndarray, t: np.ndarray) -> np.ndarray:
     n_points = x.shape[0]
     n_calib_params = t.shape[1]
 
-    # Get all parameter values, using true values as defaults
+    # Get all parameter values, using true values from the config as defaults
     all_params = np.array([p['true_value'] for p in config.PARAMETERS])
 
     # Create a parameter matrix of shape (n_all_params, n_points)
@@ -39,7 +39,7 @@ def eta(x: np.ndarray, t: np.ndarray) -> np.ndarray:
 
     return np.vstack([output1, output2]).T
 
-def discrepancy(x: np.ndarray) -> np.ndarray:
+def discrepancy(x: np.ndarray, config) -> np.ndarray:
     """
     Discrepancy function. This represents the difference between the
     computer model and the true physical process. For multi-dimensional
@@ -47,6 +47,7 @@ def discrepancy(x: np.ndarray) -> np.ndarray:
 
     Args:
         x (np.ndarray): Control parameters, shape (n_points, n_control_params).
+        config: A configuration module/object.
 
     Returns:
         np.ndarray: Discrepancy output, shape (n_points, n_output_dims).
@@ -62,13 +63,14 @@ def discrepancy(x: np.ndarray) -> np.ndarray:
 
     return np.vstack([discrepancy1, discrepancy2]).T
 
-def zeta(x: np.ndarray) -> np.ndarray:
+def zeta(x: np.ndarray, config) -> np.ndarray:
     """
     True physical process function. This is the sum of the computer model
     run with the true calibration parameters and the discrepancy function.
 
     Args:
         x (np.ndarray): Control parameters, shape (n_points, n_control_params).
+        config: A configuration module/object with parameter definitions.
 
     Returns:
         np.ndarray: True process output, shape (n_points, n_output_dims).
@@ -76,4 +78,4 @@ def zeta(x: np.ndarray) -> np.ndarray:
     true_theta_values = np.array([p['true_value'] for p in config.PARAMETERS])
     t_true = np.tile(true_theta_values, (x.shape[0], 1))
 
-    return eta(x, t_true) + discrepancy(x)
+    return eta(x, t_true, config) + discrepancy(x, config)

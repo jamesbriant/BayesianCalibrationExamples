@@ -1,30 +1,28 @@
 import json
 import os
+import argparse
+import importlib
 import numpy as np
 from scipy.stats.qmc import LatinHypercube
-from . import config
 from . import simulator
 
-def generate_simulation_data():
-    """Generates and saves the simulation data with the new structure."""
-    # Generate control parameter grid
+def generate_simulation_data(config):
+    """Generates and saves the simulation data based on the provided config."""
     x_ranges = [p['range'] for p in config.CONTROL_PARAMETERS]
     x_grids = [np.linspace(r[0], r[1], config.N_SIMULATION_POINTS) for r in x_ranges]
     x_mesh = np.meshgrid(*x_grids)
     x_grid = np.vstack([m.flatten() for m in x_mesh]).T
 
-    # Generate calibration parameter samples
     t_ranges = np.array([p['range'] for p in config.PARAMETERS[:config.N_CALIB_PARAMS]])
     sampler = LatinHypercube(d=config.N_CALIB_PARAMS)
     t_samples_scaled = sampler.random(n=config.N_SIMULATION_RUNS)
     t_samples = t_samples_scaled * (t_ranges[:, 1] - t_ranges[:, 0]) + t_ranges[:, 0]
 
-    # Run simulator and build simulation list
     simulations_list = []
     param_names = [p['name'] for p in config.PARAMETERS[:config.N_CALIB_PARAMS]]
     for t_sample in t_samples:
         t_sample_repeated = np.tile(t_sample, (x_grid.shape[0], 1))
-        output = simulator.eta(x_grid, t_sample_repeated)
+        output = simulator.eta(x_grid, t_sample_repeated, config)
 
         sim_run = {
             "theta": dict(zip(param_names, t_sample.tolist())),
@@ -32,7 +30,6 @@ def generate_simulation_data():
         }
         simulations_list.append(sim_run)
 
-    # Prepare final data structure for JSON
     data = {
         "x_grid": x_grid.tolist(),
         "simulations": simulations_list,
@@ -40,27 +37,23 @@ def generate_simulation_data():
 
     return data
 
-def generate_observation_data():
+def generate_observation_data(config):
     """Generates and saves the multi-dimensional observation data."""
-    rng = np.random.default_rng(42)  # for reproducibility
+    rng = np.random.default_rng(42)
     x_ranges = [p['range'] for p in config.CONTROL_PARAMETERS]
     x_dim = len(x_ranges)
 
-    # Generate random observation points
     x_obs = rng.uniform(
         low=[r[0] for r in x_ranges],
         high=[r[1] for r in x_ranges],
         size=(config.N_OBSERVATION_POINTS, x_dim)
     )
 
-    # Generate observations
-    obs = simulator.zeta(x_obs)
+    obs = simulator.zeta(x_obs, config)
 
-    # Add noise to observations
     noise = rng.normal(0, config.OBS_NOISE_STD, (config.N_OBSERVATION_POINTS, len(config.OBS_NOISE_STD)))
     obs += noise
 
-    # Prepare data for JSON
     data = {
         "x_obs": x_obs.tolist(),
         "outputs": obs.tolist(),
@@ -68,20 +61,42 @@ def generate_observation_data():
 
     return data
 
-def main():
-    """Main function to generate and save all data."""
-    output_dir = "control2/data"
+def main(config_name: str, output_dir: str):
+    """
+    Main function to generate and save all data.
+
+    Args:
+        config_name (str): Name of the configuration module (e.g., config_sin_a).
+        output_dir (str): Directory to save the output files.
+    """
+    # Dynamically import the specified config module
+    try:
+        config_module_path = f"control2.data_generator.{config_name}"
+        config = importlib.import_module(config_module_path)
+    except ImportError:
+        print(f"Error: Could not import configuration module '{config_name}'.")
+        return
+
     os.makedirs(output_dir, exist_ok=True)
 
-    sim_data = generate_simulation_data()
-    with open(os.path.join(output_dir, "simulation_data.json"), "w") as f:
+    # Generate and save simulation data
+    sim_data = generate_simulation_data(config)
+    sim_file_path = os.path.join(output_dir, f"{config.FILE_NAME}_simulation.json")
+    with open(sim_file_path, "w") as f:
         json.dump(sim_data, f, indent=4)
-    print("Simulation data generated and saved with new structure.")
+    print(f"Simulation data saved to {sim_file_path}")
 
-    obs_data = generate_observation_data()
-    with open(os.path.join(output_dir, "observation_data.json"), "w") as f:
+    # Generate and save observation data
+    obs_data = generate_observation_data(config)
+    obs_file_path = os.path.join(output_dir, f"{config.FILE_NAME}_observation.json")
+    with open(obs_file_path, "w") as f:
         json.dump(obs_data, f, indent=4)
-    print("Observation data generated and saved.")
+    print(f"Observation data saved to {obs_file_path}")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Generate simulation and observation data.")
+    parser.add_argument("--config", type=str, required=True, help="Name of the configuration module (e.g., config_sin_a)")
+    parser.add_argument("--output-dir", type=str, default="control2/data", help="Directory to save the output files.")
+    args = parser.parse_args()
+
+    main(config_name=args.config, output_dir=args.output_dir)

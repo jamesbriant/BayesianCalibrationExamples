@@ -1,9 +1,10 @@
 import numpy as np
 
+FILE_NAME = "sin_a"
+
 # --- General Settings ---
 # Number of calibration parameters to use in the simulation.
-# This can be changed to generate data for a different number of parameters.
-N_CALIB_PARAMS = 2
+N_CALIB_PARAMS = 1
 
 # --- Parameter Definitions ---
 # Using a list of dictionaries to define parameters generically.
@@ -28,5 +29,4 @@ N_OBSERVATION_POINTS = 100  # Number of observation points (n_obs)
 
 # --- Observation Noise ---
 # Standard deviation of the observation noise.
-# This can be a single value or a list of values for each output dimension.
 OBS_NOISE_STD = [0.05, 0.02]
