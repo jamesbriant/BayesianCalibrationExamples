@@ -28,14 +28,22 @@ def main(
     n_processes: int,
     max_tree_depth: int,
 ):
-    data_file_name = file_name.split("-")[1]
-
-    kohdataset, tminmax, ycmean = load(
-        sim_file_path_csv=f"data/sim-{data_file_name}.csv",
-        obs_file_path_csv=f"data/obs-{data_file_name}.csv",
-        num_calib_params=1,  # number of calibration parameters
-        x_dim=2,  # number of control/regression variables
+    """Main function to run the MCMC sampling process.
+    Args:
+        n_warm_up_iter (int): Number of warm-up iterations for MCMC.
+        n_main_iter (int): Number of main iterations for MCMC.
+        seed (int): Random seed for reproducibility.
+        n_chain (int): Number of MCMC chains to run.
+        n_processes (int): Number of processes to use for parallel computation.
+        max_tree_depth (int): Maximum tree depth for the MCMC sampler.
+    """
+    # Load the dataset
+    print(f"Loading dataset from {file_name}...")
+    kohdataset, tminmax, yc_mean = load(
+        file_name=file_name,
+        data_dir="data",
     )
+
     n_sim = kohdataset.num_sim_obs
     print(kohdataset)
 
