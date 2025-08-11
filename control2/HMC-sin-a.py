@@ -6,7 +6,6 @@ import kohgpjax as kgx
 import mici
 import numpy as np
 from argparser import parse_args
-from data.true_funcs import TrueParams
 from dataloader import load, save_chains_to_netcdf
 from freethreading import process_workers
 from jax import config
@@ -21,21 +20,14 @@ print("KOHGPJax version:", kgx.__version__)
 print("JAX Device:", jax.devices())
 
 
-TP = TrueParams()
-
-
-def main():
-    args = parse_args()
-    # 0 Access the arguments
-    n_warm_up_iter: int = args.W
-    n_main_iter: int = args.N
-    seed: int = args.seed
-    n_chain: int = args.n_chain
-    n_processes: int = args.n_processes
-    max_tree_depth: int = args.max_tree_depth
-    # div: int = args.D
-    # obs_mode: str = args.obs_mode
-
+def main(
+    n_warm_up_iter: int,
+    n_main_iter: int,
+    seed: int,
+    n_chain: int,
+    n_processes: int,
+    max_tree_depth: int,
+):
     data_file_name = file_name.split("-")[1]
 
     kohdataset, tminmax, ycmean = load(
@@ -134,4 +126,22 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+
+    n_warm_up_iter: int = args.W
+    n_main_iter: int = args.N
+    seed: int = args.seed
+    n_chain: int = args.n_chain
+    n_processes: int = args.n_processes
+    max_tree_depth: int = args.max_tree_depth
+    # div: int = args.D
+    # obs_mode: str = args.obs_mode
+
+    main(
+        n_warm_up_iter=n_warm_up_iter,
+        n_main_iter=n_main_iter,
+        seed=seed,
+        n_chain=n_chain,
+        n_processes=n_processes,
+        max_tree_depth=max_tree_depth,
+    )

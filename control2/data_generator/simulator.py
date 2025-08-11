@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def eta(x: np.ndarray, t: np.ndarray, config) -> np.ndarray:
     """
     Computer model/simulator function.
@@ -18,7 +19,7 @@ def eta(x: np.ndarray, t: np.ndarray, config) -> np.ndarray:
     n_calib_params = t.shape[1]
 
     # Get all parameter values, using true values from the config as defaults
-    all_params = np.array([p['true_value'] for p in config.PARAMETERS])
+    all_params = np.array([p["true_value"] for p in config.PARAMETERS])
 
     # Create a parameter matrix of shape (n_all_params, n_points)
     params_matrix = np.tile(all_params[:, np.newaxis], (1, n_points))
@@ -35,9 +36,11 @@ def eta(x: np.ndarray, t: np.ndarray, config) -> np.ndarray:
     output1 = t0 * np.sin(t1 * x0 + t4 * x1 + t2) + t3
 
     # Output 2: A simple quadratic function for demonstration
-    output2 = t0 * (x0 - 2)**2 + t1 * x1
+    # output2 = t0 * (x0 - 2)**2 + t1 * x1
 
-    return np.vstack([output1, output2]).T
+    # return np.vstack([output1, output2]).T
+    return output1[:, np.newaxis]  # Return as a 2D array with one column
+
 
 def discrepancy(x: np.ndarray, config) -> np.ndarray:
     """
@@ -59,9 +62,11 @@ def discrepancy(x: np.ndarray, config) -> np.ndarray:
     discrepancy1 = np.exp(0.14 * x0 - 0.14 * x1) / 10
 
     # Discrepancy for the second output (e.g., a small linear trend)
-    discrepancy2 = 0.05 * x0 + 0.02 * x1
+    # discrepancy2 = 0.05 * x0 + 0.02 * x1
 
-    return np.vstack([discrepancy1, discrepancy2]).T
+    # return np.vstack([discrepancy1, discrepancy2]).T
+    return discrepancy1[:, np.newaxis]  # Return as a 2D array with one column
+
 
 def zeta(x: np.ndarray, config) -> np.ndarray:
     """
@@ -75,7 +80,7 @@ def zeta(x: np.ndarray, config) -> np.ndarray:
     Returns:
         np.ndarray: True process output, shape (n_points, n_output_dims).
     """
-    true_theta_values = np.array([p['true_value'] for p in config.PARAMETERS])
+    true_theta_values = np.array([p["true_value"] for p in config.PARAMETERS])
     t_true = np.tile(true_theta_values, (x.shape[0], 1))
 
     return eta(x, t_true, config) + discrepancy(x, config)

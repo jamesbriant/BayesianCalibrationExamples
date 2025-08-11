@@ -1,10 +1,15 @@
+import argparse
 import json
 import os
-import argparse
-import jax.numpy as jnp
+
 import gpjax as gpx
+import jax.numpy as jnp
 import kohgpjax as kgx
 import numpy as np
+from jax import config
+
+config.update("jax_enable_x64", True)  # Enable 64-bit precision for JAX
+
 
 def load_and_verify(file_name, data_dir):
     """Loads a specific dataset and verifies it by creating a KOHDataset."""
@@ -23,10 +28,10 @@ def load_and_verify(file_name, data_dir):
     # --- Prepare field data ---
     xf = jnp.array(obs_data["x_obs"])
     # NOTE: KOHDataset currently only supports 1D output. We select the first dimension for verification.
-    yf = jnp.array(obs_data["outputs"])[:, 0:1]
+    yf = jnp.array(obs_data["observations"])[:, 0:1]
 
     # --- Prepare computer model data ---
-    x_grid = np.array(sim_data["x_grid"])
+    x_grid = np.array(sim_data["x_sim"])
     simulations = sim_data["simulations"]
 
     xc_list, tc_list, yc_list = [], [], []
@@ -62,15 +67,28 @@ def load_and_verify(file_name, data_dir):
 
         print(f"Successfully verified dataset '{file_name}'.")
         print(f"Field dataset size: {field_dataset.n}")
-        print(f"Computer model dataset size: {comp_dataset.n}")
+        print(f"Computer model dataset size: {comp_dataset.n}\n")
+
+        print(koh_dataset)
 
     except Exception as e:
         print(f"An error occurred during KOHDataset creation for '{file_name}': {e}")
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Verify a generated dataset.")
-    parser.add_argument("--file-name", type=str, required=True, help="Base name of the dataset to verify (e.g., sin_a)")
-    parser.add_argument("--data-dir", type=str, default="control2/data", help="Directory where the data is stored.")
+    parser.add_argument(
+        "--file-name",
+        type=str,
+        required=True,
+        help="Base name of the dataset to verify (e.g., sin-a)",
+    )
+    parser.add_argument(
+        "--data-dir",
+        type=str,
+        default="data",
+        help="Directory where the data is stored.",
+    )
     args = parser.parse_args()
 
     load_and_verify(args.file_name, args.data_dir)
