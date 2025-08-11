@@ -6,7 +6,6 @@ import kohgpjax as kgx
 import mici
 import numpy as np
 from argparser import parse_args
-from data.true_funcs import TrueParams
 from dataloader import load, save_chains_to_netcdf
 from freethreading import process_workers
 from jax import config
@@ -21,29 +20,30 @@ print("KOHGPJax version:", kgx.__version__)
 print("JAX Device:", jax.devices())
 
 
-TP = TrueParams()
-
-
-def main():
-    args = parse_args()
-    # 0 Access the arguments
-    n_warm_up_iter: int = args.W
-    n_main_iter: int = args.N
-    seed: int = args.seed
-    n_chain: int = args.n_chain
-    n_processes: int = args.n_processes
-    max_tree_depth: int = args.max_tree_depth
-    # div: int = args.D
-    # obs_mode: str = args.obs_mode
-
-    data_file_name = file_name.split("-")[1]
-
-    kohdataset, tminmax, ycmean = load(
-        sim_file_path_csv=f"data/sim-{data_file_name}.csv",
-        obs_file_path_csv=f"data/obs-{data_file_name}.csv",
-        num_calib_params=1,  # number of calibration parameters
-        x_dim=2,  # number of control/regression variables
+def main(
+    n_warm_up_iter: int,
+    n_main_iter: int,
+    seed: int,
+    n_chain: int,
+    n_processes: int,
+    max_tree_depth: int,
+):
+    """Main function to run the MCMC sampling process.
+    Args:
+        n_warm_up_iter (int): Number of warm-up iterations for MCMC.
+        n_main_iter (int): Number of main iterations for MCMC.
+        seed (int): Random seed for reproducibility.
+        n_chain (int): Number of MCMC chains to run.
+        n_processes (int): Number of processes to use for parallel computation.
+        max_tree_depth (int): Maximum tree depth for the MCMC sampler.
+    """
+    # Load the dataset
+    print(f"Loading dataset from {file_name}...")
+    kohdataset, tminmax, yc_mean = load(
+        file_name=file_name,
+        data_dir="data",
     )
+
     n_sim = kohdataset.num_sim_obs
     print(kohdataset)
 
@@ -134,4 +134,22 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+
+    n_warm_up_iter: int = args.W
+    n_main_iter: int = args.N
+    seed: int = args.seed
+    n_chain: int = args.n_chain
+    n_processes: int = args.n_processes
+    max_tree_depth: int = args.max_tree_depth
+    # div: int = args.D
+    # obs_mode: str = args.obs_mode
+
+    main(
+        n_warm_up_iter=n_warm_up_iter,
+        n_main_iter=n_main_iter,
+        seed=seed,
+        n_chain=n_chain,
+        n_processes=n_processes,
+        max_tree_depth=max_tree_depth,
+    )
