@@ -11,6 +11,7 @@ HPC/
 *.png
 *.csv
 *.nc
+*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
