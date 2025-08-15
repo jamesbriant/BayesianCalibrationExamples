@@ -9,7 +9,6 @@ import numpy as np
 from jax import config
 
 config.update("jax_enable_x64", True)  # Enable 64-bit precision for JAX
-x_dim = 2  # number of control/regression variables
 
 
 # def load(
@@ -155,32 +154,45 @@ def thin_runs_by_div(data: np.ndarray, div: int, x_dim: int = 1) -> np.ndarray:
     return thinned_data
 
 
+from datetime import datetime
+
+
 def save_chains_to_netcdf(
-    traces,
-    traces_transformed,
+    raw_traces,
+    transformed_traces,
     file_name: str,
     n_warm_up_iter: int,
     n_main_iter: int,
     n_sim: int,
+    ycmean: float,
+    inference_library_name: str,
 ) -> None:
     """
-    Save the MCMC traces to NetCDF files.
+    Save the MCMC traces to a NetCDF file in Arviz InferenceData format.
 
     Args:
-        traces: The raw MCMC traces
-        traces_transformed: The transformed MCMC traces
-        file_name: The base name for the output files
-        n_warm_up_iter: Number of warm-up iterations
-        n_main_iter: Number of main iterations
-        n_sim: Number of simulation output points
+        raw_traces: The raw MCMC traces.
+        transformed_traces: The transformed MCMC traces.
+        file_name: The base name for the output file.
+        n_warm_up_iter: Number of warm-up iterations.
+        n_main_iter: Number of main iterations.
+        n_sim: Number of simulation output points.
+        ycmean: The mean of the centered output data.
+        inference_library_name: The name of the inference library used.
     """
-    # check if chains directory exists, if not create it
-    if not os.path.exists("chains"):
-        os.makedirs("chains")
+    # Create the directory for the experiment if it doesn't exist
+    output_dir = os.path.join("chains", file_name)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
-    arviz.convert_to_inference_data(traces).to_netcdf(
-        f"chains/{file_name}-W{n_warm_up_iter}-N{n_main_iter}-Nsim{n_sim}-raw.nc"
+    inference_data = arviz.from_dict(
+        posterior=transformed_traces,
+        unconstrained_posterior=raw_traces,
     )
-    arviz.convert_to_inference_data(traces_transformed).to_netcdf(
-        f"chains/{file_name}-W{n_warm_up_iter}-N{n_main_iter}-Nsim{n_sim}.nc"
+    inference_data.attrs["ycmean"] = str(ycmean)
+    inference_data.attrs["inference_library"] = inference_library_name
+    inference_data.attrs["created_at"] = datetime.now().isoformat()
+
+    inference_data.to_netcdf(
+        os.path.join(output_dir, f"W{n_warm_up_iter}-N{n_main_iter}-Nsim{n_sim}.nc")
     )
