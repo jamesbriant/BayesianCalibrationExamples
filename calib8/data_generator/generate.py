@@ -1,12 +1,11 @@
 import argparse
-import importlib
 import json
 import os
+import sys
 
 import numpy as np
 from scipy.stats.qmc import LatinHypercube
-
-from . import simulator
+from ..utils import load_config_from_path
 
 
 def generate_simulation_data(config):
@@ -27,7 +26,7 @@ def generate_simulation_data(config):
     param_names = [p["name"] for p in config.PARAMETERS[: config.N_CALIB_PARAMS]]
     for t_sample in t_samples:
         t_sample_repeated = np.tile(t_sample, (x_grid.shape[0], 1))
-        output = simulator.eta(x_grid, t_sample_repeated, config)
+        output = config.eta(x_grid, t_sample_repeated)
 
         sim_run = {
             "theta": dict(zip(param_names, t_sample.tolist())),
@@ -55,7 +54,7 @@ def generate_observation_data(config):
         size=(config.N_OBSERVATION_POINTS, x_dim),
     )
 
-    obs = simulator.zeta(x_obs, config)
+    obs = config.zeta(x_obs)
 
     noise = rng.normal(
         0,
@@ -72,20 +71,19 @@ def generate_observation_data(config):
     return data
 
 
-def main(config_name: str, output_dir: str):
+def main(config_path: str, output_dir: str):
     """
     Main function to generate and save all data.
 
     Args:
-        config_name (str): Name of the configuration module (e.g., config_sin-a).
+        config_path (str): Path to the configuration module.
         output_dir (str): Directory to save the output files.
     """
     # Dynamically import the specified config module
     try:
-        config_module_path = f"data_generator.{config_name}"
-        config = importlib.import_module(config_module_path)
+        config = load_config_from_path(config_path)
     except ImportError:
-        print(f"Error: Could not import configuration module '{config_name}'.")
+        print(f"Error: Could not import configuration module from '{config_path}'.")
         return
 
     os.makedirs(output_dir, exist_ok=True)
@@ -113,7 +111,7 @@ if __name__ == "__main__":
         "--config",
         type=str,
         required=True,
-        help="Name of the configuration module (e.g., config_sin-a)",
+        help="Path to the configuration module (e.g., configs/calib8.py)",
     )
     parser.add_argument(
         "--output-dir",
@@ -123,4 +121,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    main(config_name=args.config, output_dir=args.output_dir)
+    main(config_path=args.config, output_dir=args.output_dir)

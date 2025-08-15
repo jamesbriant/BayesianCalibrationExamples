@@ -1,17 +1,43 @@
-import argparse
+import importlib.util
+import numpy as np
+import jax.numpy as jnp
 import json
 import os
-
 import gpjax as gpx
-import jax.numpy as jnp
 import kohgpjax as kgx
-import numpy as np
 from jax import config
 
-config.update("jax_enable_x64", True)  # Enable 64-bit precision for JAX
+config.update("jax_enable_x64", True)
 
 
-def load_and_verify(file_name, data_dir):
+def load_config_from_path(path):
+    """Dynamically loads a config module from a given path."""
+    spec = importlib.util.spec_from_file_location("config", path)
+    config = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(config)
+    return config
+
+
+def transform_chains(traces, model_parameters, prior_dict, tminmax):
+    """Transforms the MCMC chains."""
+    traces_transformed = {}
+    for var, trace in traces.items():
+        if var == "hamiltonian":
+            continue
+        index = next(
+            i for i, p in enumerate(model_parameters.priors_flat) if p.name == var
+        )
+        traces_transformed[var] = model_parameters.priors_flat[index].forward(
+            np.array(trace)
+        )
+        if var in prior_dict["thetas"].keys():
+            trace_val = traces_transformed[var]
+            tmin, tmax = tminmax[var]
+            traces_transformed[var] = list((jnp.array(trace_val) * (tmax - tmin)) + tmin)
+    return traces_transformed
+
+
+def verify_data(file_name, data_dir="data"):
     """Loads a specific dataset and verifies it by creating a KOHDataset."""
     sim_file = os.path.join(data_dir, f"{file_name}_simulation.json")
     obs_file = os.path.join(data_dir, f"{file_name}_observation.json")
@@ -75,22 +101,3 @@ def load_and_verify(file_name, data_dir):
 
     except Exception as e:
         print(f"An error occurred during KOHDataset creation for '{file_name}': {e}")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Verify a generated dataset.")
-    parser.add_argument(
-        "--file-name",
-        type=str,
-        required=True,
-        help="Base name of the dataset to verify (e.g., sin-a)",
-    )
-    parser.add_argument(
-        "--data-dir",
-        type=str,
-        default="data",
-        help="Directory where the data is stored.",
-    )
-    args = parser.parse_args()
-
-    load_and_verify(args.file_name, args.data_dir)
