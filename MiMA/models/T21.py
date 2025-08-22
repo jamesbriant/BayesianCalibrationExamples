@@ -12,18 +12,15 @@ class Model(KOHModel):
         params = params_constrained["eta"]
         kernels = [
             gpx.kernels.RBF(
-                active_dims=[i],
-                lengthscale=jnp.array(params["lengthscales"][f"x_{i - 1}"]),
-            )
-            for i in range(1, 9)  # Assuming theta_0 to theta_7
-        ]
-        kernels.append(
-            gpx.kernels.RBF(
                 active_dims=[0],
                 lengthscale=jnp.array(params["lengthscales"]["x_0"]),
                 variance=jnp.array(1 / params["variances"]["precision"]),
-            )
-        )
+            ),
+            gpx.kernels.RBF(
+                active_dims=[1],
+                lengthscale=jnp.array(params["lengthscales"]["theta_0"]),
+            ),
+        ]
         return gpx.kernels.ProductKernel(kernels=kernels)
 
     def k_delta(self, params_constrained) -> gpx.kernels.AbstractKernel:
@@ -48,19 +45,23 @@ def get_ModelParameterPriorDict(
 ) -> ModelParameterPriorDict:
     print("Creating ModelParameterPriorDict for calib8 model...")
 
-    # account for the scaling onto [0, 1]
+    param = config.PARAMETERS[0]
+    assert param["name"] == "theta_0", (
+        f"Expected first parameter to be 'theta_0', got '{param['name']}'"
+    )
+    prior_range = param["range"]
 
-    # tmm0 = tminmax["theta_0"]
-    # A0 = (0.25 - tmm0[0]) / (tmm0[1] - tmm0[0])
-    # B0 = (0.45 - tmm0[0]) / (tmm0[1] - tmm0[0])
-    # print(f"A0: {A0}, B0: {B0}")
+    # account for the scaling onto [0, 1]
+    tmm = tminmax["theta_0"]
+    A = (prior_range[0] - tmm[0]) / (tmm[1] - tmm[0])
+    B = (prior_range[1] - tmm[0]) / (tmm[1] - tmm[0])
 
     prior_dict: ModelParameterPriorDict = {
         "thetas": {
-            # "theta_0": ParameterPrior(
-            #     dist.Uniform(low=A0, high=B0),
-            #     name="theta_0",
-            # ),
+            "theta_0": ParameterPrior(
+                dist.Uniform(low=A, high=B),
+                name="theta_0",
+            ),
         },
         "eta": {
             "variances": {
@@ -74,10 +75,10 @@ def get_ModelParameterPriorDict(
                     dist.Gamma(concentration=4.0, rate=1.4),
                     name="eta_lengthscale_x_0",
                 ),
-                # "theta_0": ParameterPrior(
-                #     dist.Gamma(concentration=2.0, rate=3.5),
-                #     name="eta_lengthscale_theta_0",
-                # ),
+                "theta_0": ParameterPrior(
+                    dist.Gamma(concentration=2.0, rate=3.5),
+                    name="eta_lengthscale_theta_0",
+                ),
             },
         },
         "delta": {
@@ -110,20 +111,5 @@ def get_ModelParameterPriorDict(
             },
         },
     }
-
-    for i in range(0, 8):
-        prior_range = config.PARAMETERS["range"]
-        tmm = tminmax[f"theta_{i}"]
-        A = (prior_range[0] - tmm[0]) / (tmm[1] - tmm[0])
-        B = (prior_range[1] - tmm[0]) / (tmm[1] - tmm[0])
-        prior_dict["thetas"][f"theta_{i}"] = ParameterPrior(
-            dist.Uniform(low=A, high=B),
-            name=f"theta_{i}",
-        )
-
-        prior_dict["eta"]["lengthscales"][f"theta_{i}"] = ParameterPrior(
-            dist.Gamma(concentration=2.0, rate=3.5),
-            name=f"eta_lengthscale_theta_{i}",
-        )
 
     return prior_dict

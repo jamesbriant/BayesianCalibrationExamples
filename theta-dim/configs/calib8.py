@@ -12,14 +12,14 @@ OUTPUT_DIMS = 1  # Number of output dimensions
 # --- Parameter Definitions ---
 # Using a list of dictionaries to define parameters generically.
 PARAMETERS = [
-    {"name": "t0", "true_value": 0.4, "range": [0.25, 0.45]},
-    {"name": "t1", "true_value": -0.22, "range": [0.0, -0.3]},
-    {"name": "t2", "true_value": 1.25, "range": [1.1, 1.35]},
-    {"name": "t3", "true_value": 1.0, "range": [0.95, 1.05]},
-    {"name": "t4", "true_value": -2.45, "range": [-2.65, -2.4]},
-    {"name": "t5", "true_value": 2.0, "range": [1.9, 2.1]},
-    {"name": "t6", "true_value": 0.7, "range": [0.6, 0.85]},
-    {"name": "t7", "true_value": 12.2, "range": [10.0, 20.0]},
+    {"name": "theta_0", "true_value": 0.4, "range": [0.25, 0.45]},
+    {"name": "theta_1", "true_value": -0.22, "range": [-0.3, 0.0]},
+    {"name": "theta_2", "true_value": 1.25, "range": [1.1, 1.35]},
+    {"name": "theta_3", "true_value": 1.0, "range": [0.95, 1.05]},
+    {"name": "theta_4", "true_value": -2.45, "range": [-2.65, -2.4]},
+    {"name": "theta_5", "true_value": 2.0, "range": [1.9, 2.1]},
+    {"name": "theta_6", "true_value": 0.7, "range": [0.6, 0.85]},
+    {"name": "theta_7", "true_value": 12.2, "range": [10.0, 20.0]},
 ]
 
 # (
@@ -75,12 +75,6 @@ def eta(x: np.ndarray, t: np.ndarray) -> np.ndarray:
     # x1 = x[:, 1]
 
     # Output 1: Original sine function
-    # output1 = (
-    #     t0
-    #     + t1 * x0 ** t2
-    #     + t3 * (x0 - t4) ** t5 * np.sin(t6 * x0 * np.pi)
-    #     - t7 * np.exp(-2 * x0)
-    # )
     output1 = (
         t0
         + t1 * x0**t2

@@ -5,10 +5,11 @@ This directory contains a modular workflow for running Bayesian calibration expe
 ## Workflow Overview
 
 The typical workflow is as follows:
-1.  Define an experiment in a config file.
-2.  Generate simulation and observation data.
-3.  Run HMC sampling to obtain posterior distributions.
-4.  Plot the results.
+
+1. Define an experiment in a config file.
+2. Generate simulation and observation data.
+3. Run HMC sampling to obtain posterior distributions.
+4. Plot the results.
 
 All commands below should be run from within the `calib8/` directory.
 
@@ -16,9 +17,9 @@ All commands below should be run from within the `calib8/` directory.
 
 An experiment is defined by a Python configuration file located in the `configs/` directory (e.g., `configs/calib8.py`). This file contains all the necessary parameters and functions for the experiment, including:
 
--   **Parameter Definitions**: `PARAMETERS` and `CONTROL_PARAMETERS` define the calibration and control parameters, their true values, and their ranges.
--   **Data Generation Settings**: `N_SIMULATION_RUNS`, `N_SIMULATION_POINTS`, etc.
--   **Simulator Functions**: The config file must also contain the Python functions for the computer model (`eta`), the discrepancy (`discrepancy`), and the true physical process (`zeta`).
+- **Parameter Definitions**: `PARAMETERS` and `CONTROL_PARAMETERS` define the calibration and control parameters, their true values, and their ranges.
+- **Data Generation Settings**: `N_SIMULATION_RUNS`, `N_SIMULATION_POINTS`, etc.
+- **Simulator Functions**: The config file must also contain the Python functions for the computer model (`eta`), the discrepancy (`discrepancy`), and the true physical process (`zeta`).
 
 ## 2. Generating Data
 
@@ -59,12 +60,12 @@ python HMC-mici.py --config configs/calib8.py -W 1000 -N 1000 --n_chain 2 --n_pr
 python HMC-blackjax.py --config configs/calib8.py -W 1000 -N 1000 --n_chain 2 --max_num_doublings 10
 ```
 
--   `-W`: Number of warm-up iterations.
--   `-N`: Number of main sampling iterations.
--   `--n_chain`: Number of MCMC chains to run.
--   `--n_processes`: (Mici only) Number of processes to use for parallel computation.
--   `--max_tree_depth`: (Mici only) Maximum tree depth for the NUTS sampler.
--   `--max_num_doublings`: (BlackJax only) Maximum number of doublings for the NUTS sampler.
+- `-W`: Number of warm-up iterations.
+- `-N`: Number of main sampling iterations.
+- `--n_chain`: Number of MCMC chains to run.
+- `--n_processes`: (Mici only) Number of processes to use for parallel computation.
+- `--max_tree_depth`: (Mici only) Maximum tree depth for the NUTS sampler.
+- `--max_num_doublings`: (BlackJax only) Maximum number of doublings for the NUTS sampler.
 
 The results will be saved in a structured directory. For an experiment named `calib8` (defined by `FILE_NAME` in the config), the output will be in `chains/calib8/`. The saved file is a NetCDF file containing an ArviZ `InferenceData` object.
 

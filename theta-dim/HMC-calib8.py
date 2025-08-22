@@ -5,16 +5,15 @@ import jax.numpy as jnp
 import kohgpjax as kgx
 import mici
 import numpy as np
-from argparser import get_base_parser
-from datahandler import load, save_chains_to_netcdf
+from argparser import parse_args
+from dataloader import load, save_chains_to_netcdf
 from freethreading import process_workers
 from jax import config
 from kohgpjax.parameters import ModelParameters
-from models.calib8 import Model, get_ModelParameterPriorDict
-from utils import load_config_from_path
+from models.sin_a import Model, get_ModelParameterPriorDict
 
 config.update("jax_enable_x64", True)
-
+file_name = "sin-a"
 
 print("GPJax version:", gpx.__version__)
 print("KOHGPJax version:", kgx.__version__)
@@ -22,7 +21,6 @@ print("JAX Device:", jax.devices())
 
 
 def main(
-    config_path: str,
     n_warm_up_iter: int,
     n_main_iter: int,
     seed: int,
@@ -32,18 +30,13 @@ def main(
 ):
     """Main function to run the MCMC sampling process.
     Args:
-        config_path (str): Path to the configuration module.
         n_warm_up_iter (int): Number of warm-up iterations for MCMC.
         n_main_iter (int): Number of main iterations for MCMC.
         seed (int): Random seed for reproducibility.
         n_chain (int): Number of MCMC chains to run.
         n_processes (int): Number of processes to use for parallel computation.
-        max_tree_depth (int): Maximum tree depth for the NUTS sampler.
+        max_tree_depth (int): Maximum tree depth for the MCMC sampler.
     """
-    # Load the config file
-    config = load_config_from_path(config_path)
-    file_name = config.FILE_NAME
-
     # Load the dataset
     print(f"Loading dataset from {file_name}...")
     kohdataset, tminmax, yc_mean = load(
@@ -87,6 +80,7 @@ def main(
 
     ##### Mici sampler and adapters #####
     rng = np.random.default_rng(seed)
+    # sampler = mici.samplers.StaticMetropolisHMC(system, integrator, rng, n_step=max_tree_depth)
     sampler = mici.samplers.DynamicMultinomialHMC(
         system, integrator, rng, max_tree_depth=max_tree_depth
     )
@@ -110,44 +104,52 @@ def main(
         monitor_stats=("n_step", "accept_stat", "step_size", "diverging"),
     )
 
+    # Analyse the MCMC output
+    # arviz.summary(traces)
+
     # Transform the chains
-    traces_transformed = transform_chains(
-        traces, model_parameters, prior_dict, tminmax
-    )
+    traces_transformed = {}
+    for var, trace in traces.items():
+        if var == "hamiltonian":
+            continue
+        index = tracer_index_dict[var]
+        traces_transformed[var] = model_parameters.priors_flat[index].forward(
+            np.array(trace)
+        )
+        if var in prior_dict["thetas"].keys():
+            trace = traces_transformed[var]
+            tmin, tmax = tminmax[var]
+            traces_transformed[var] = list((jnp.array(trace) * (tmax - tmin)) + tmin)
 
     print(arviz.summary(traces_transformed))
 
     save_chains_to_netcdf(
-        raw_traces=traces,
-        transformed_traces=traces_transformed,
+        traces,
+        traces_transformed,
         file_name=file_name,
         n_warm_up_iter=n_warm_up_iter,
         n_main_iter=n_main_iter,
         n_sim=n_sim,
-        ycmean=yc_mean,
-        inference_library_name="mici",
     )
 
 
 if __name__ == "__main__":
-    parser = get_base_parser()
-    parser.add_argument(
-        "--n_processes", type=int, default=1, help="Number of processes to use."
-    )
-    parser.add_argument(
-        "--max_tree_depth",
-        type=int,
-        default=10,
-        help="Maximum tree depth for the NUTS sampler.",
-    )
-    args = parser.parse_args()
+    args = parse_args()
+
+    n_warm_up_iter: int = args.W
+    n_main_iter: int = args.N
+    seed: int = args.seed
+    n_chain: int = args.n_chain
+    n_processes: int = args.n_processes
+    max_tree_depth: int = args.max_tree_depth
+    # div: int = args.D
+    # obs_mode: str = args.obs_mode
 
     main(
-        config_path=args.config,
-        n_warm_up_iter=args.W,
-        n_main_iter=args.N,
-        seed=args.seed,
-        n_chain=args.n_chain,
-        n_processes=args.n_processes,
-        max_tree_depth=args.max_tree_depth,
+        n_warm_up_iter=n_warm_up_iter,
+        n_main_iter=n_main_iter,
+        seed=seed,
+        n_chain=n_chain,
+        n_processes=n_processes,
+        max_tree_depth=max_tree_depth,
     )

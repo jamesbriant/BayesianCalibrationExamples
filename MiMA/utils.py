@@ -1,10 +1,11 @@
 import importlib.util
-import numpy as np
-import jax.numpy as jnp
 import json
 import os
+
 import gpjax as gpx
+import jax.numpy as jnp
 import kohgpjax as kgx
+import numpy as np
 from jax import config
 
 config.update("jax_enable_x64", True)
@@ -18,29 +19,13 @@ def load_config_from_path(path):
     return config
 
 
-def transform_chains(traces, model_parameters, prior_dict, tminmax):
-    """Transforms the MCMC chains."""
-    traces_transformed = {}
-    for var, trace in traces.items():
-        if var == "hamiltonian":
-            continue
-        index = next(
-            i for i, p in enumerate(model_parameters.priors_flat) if p.name == var
-        )
-        traces_transformed[var] = model_parameters.priors_flat[index].forward(
-            np.array(trace)
-        )
-        if var in prior_dict["thetas"].keys():
-            trace_val = traces_transformed[var]
-            tmin, tmax = tminmax[var]
-            traces_transformed[var] = list((jnp.array(trace_val) * (tmax - tmin)) + tmin)
-    return traces_transformed
-
-
-def verify_data(file_name, data_dir="data"):
+def verify_data(config, data_dir="data"):
     """Loads a specific dataset and verifies it by creating a KOHDataset."""
-    sim_file = os.path.join(data_dir, f"{file_name}_simulation.json")
-    obs_file = os.path.join(data_dir, f"{file_name}_observation.json")
+    config = load_config_from_path(config)
+    file_name = config.FILE_NAME
+
+    sim_file = os.path.join(data_dir, file_name, "simulation.json")
+    obs_file = os.path.join(data_dir, file_name, "observation.json")
 
     try:
         with open(sim_file, "r") as f:
@@ -93,11 +78,13 @@ def verify_data(file_name, data_dir="data"):
         comp_dataset = gpx.Dataset(X=jnp.hstack([xc, tc_normalized]), y=yc_centered)
         koh_dataset = kgx.KOHDataset(field_dataset, comp_dataset)
 
-        print(f"Successfully verified dataset '{file_name}'.")
+        print(f"Successfully verified dataset under 'data/{file_name}/'.")
         print(f"Field dataset size: {field_dataset.n}")
         print(f"Computer model dataset size: {comp_dataset.n}\n")
 
         print(koh_dataset)
 
     except Exception as e:
-        print(f"An error occurred during KOHDataset creation for '{file_name}': {e}")
+        print(
+            f"An error occurred during KOHDataset creation for data under 'data/{file_name}/': {e}"
+        )

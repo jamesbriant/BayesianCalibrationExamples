@@ -1,11 +1,10 @@
 import argparse
 import json
 import os
-import sys
 
 import numpy as np
 from scipy.stats.qmc import LatinHypercube
-from ..utils import load_config_from_path
+from utils import load_config_from_path
 
 
 def generate_simulation_data(config):
@@ -86,18 +85,19 @@ def main(config_path: str, output_dir: str):
         print(f"Error: Could not import configuration module from '{config_path}'.")
         return
 
+    output_dir = os.path.join(output_dir, config.FILE_NAME)
     os.makedirs(output_dir, exist_ok=True)
 
     # Generate and save simulation data
     sim_data = generate_simulation_data(config)
-    sim_file_path = os.path.join(output_dir, f"{config.FILE_NAME}_simulation.json")
+    sim_file_path = os.path.join(output_dir, "simulation.json")
     with open(sim_file_path, "w") as f:
         json.dump(sim_data, f, indent=4)
     print(f"Simulation data saved to {sim_file_path}")
 
     # Generate and save observation data
     obs_data = generate_observation_data(config)
-    obs_file_path = os.path.join(output_dir, f"{config.FILE_NAME}_observation.json")
+    obs_file_path = os.path.join(output_dir, "observation.json")
     with open(obs_file_path, "w") as f:
         json.dump(obs_data, f, indent=4)
     print(f"Observation data saved to {obs_file_path}")
@@ -111,13 +111,13 @@ if __name__ == "__main__":
         "--config",
         type=str,
         required=True,
-        help="Path to the configuration module (e.g., configs/calib8.py)",
+        help="Path to the configuration module (e.g., configs/<file_name>.py)",
     )
     parser.add_argument(
         "--output-dir",
         type=str,
         default="data",
-        help="Directory to save the output files.",
+        help="Directory to save the output files. Defaults to 'data'.",
     )
     args = parser.parse_args()
 
