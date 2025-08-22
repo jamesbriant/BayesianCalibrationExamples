@@ -1,12 +1,10 @@
 import argparse
-import importlib
 import json
 import os
 
 import numpy as np
 from scipy.stats.qmc import LatinHypercube
-
-from . import simulator
+from utils import load_config_from_path
 
 
 def generate_simulation_data(config):
@@ -27,7 +25,7 @@ def generate_simulation_data(config):
     param_names = [p["name"] for p in config.PARAMETERS[: config.N_CALIB_PARAMS]]
     for t_sample in t_samples:
         t_sample_repeated = np.tile(t_sample, (x_grid.shape[0], 1))
-        output = simulator.eta(x_grid, t_sample_repeated, config)
+        output = config.eta(x_grid, t_sample_repeated)
 
         sim_run = {
             "theta": dict(zip(param_names, t_sample.tolist())),
@@ -55,7 +53,7 @@ def generate_observation_data(config):
         size=(config.N_OBSERVATION_POINTS, x_dim),
     )
 
-    obs = simulator.zeta(x_obs, config)
+    obs = config.zeta(x_obs)
 
     noise = rng.normal(
         0,
@@ -72,34 +70,34 @@ def generate_observation_data(config):
     return data
 
 
-def main(config_name: str, output_dir: str):
+def main(config_path: str, output_dir: str):
     """
     Main function to generate and save all data.
 
     Args:
-        config_name (str): Name of the configuration module (e.g., config_sin-a).
+        config_path (str): Path to the configuration module.
         output_dir (str): Directory to save the output files.
     """
     # Dynamically import the specified config module
     try:
-        config_module_path = f"data_generator.{config_name}"
-        config = importlib.import_module(config_module_path)
+        config = load_config_from_path(config_path)
     except ImportError:
-        print(f"Error: Could not import configuration module '{config_name}'.")
+        print(f"Error: Could not import configuration module from '{config_path}'.")
         return
 
+    output_dir = os.path.join(output_dir, config.FILE_NAME)
     os.makedirs(output_dir, exist_ok=True)
 
     # Generate and save simulation data
     sim_data = generate_simulation_data(config)
-    sim_file_path = os.path.join(output_dir, f"{config.FILE_NAME}_simulation.json")
+    sim_file_path = os.path.join(output_dir, "simulation.json")
     with open(sim_file_path, "w") as f:
         json.dump(sim_data, f, indent=4)
     print(f"Simulation data saved to {sim_file_path}")
 
     # Generate and save observation data
     obs_data = generate_observation_data(config)
-    obs_file_path = os.path.join(output_dir, f"{config.FILE_NAME}_observation.json")
+    obs_file_path = os.path.join(output_dir, "observation.json")
     with open(obs_file_path, "w") as f:
         json.dump(obs_data, f, indent=4)
     print(f"Observation data saved to {obs_file_path}")
@@ -113,14 +111,14 @@ if __name__ == "__main__":
         "--config",
         type=str,
         required=True,
-        help="Name of the configuration module (e.g., config_sin-a)",
+        help="Path to the configuration module (e.g., configs/<file_name>.py)",
     )
     parser.add_argument(
         "--output-dir",
         type=str,
         default="data",
-        help="Directory to save the output files.",
+        help="Directory to save the output files. Defaults to 'data'.",
     )
     args = parser.parse_args()
 
-    main(config_name=args.config, output_dir=args.output_dir)
+    main(config_path=args.config, output_dir=args.output_dir)

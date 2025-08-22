@@ -1,4 +1,4 @@
-import argparse
+import importlib.util
 import json
 import os
 
@@ -8,13 +8,24 @@ import kohgpjax as kgx
 import numpy as np
 from jax import config
 
-config.update("jax_enable_x64", True)  # Enable 64-bit precision for JAX
+config.update("jax_enable_x64", True)
 
 
-def load_and_verify(file_name, data_dir):
+def load_config_from_path(path):
+    """Dynamically loads a config module from a given path."""
+    spec = importlib.util.spec_from_file_location("config", path)
+    config = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(config)
+    return config
+
+
+def verify_data(config, data_dir="data"):
     """Loads a specific dataset and verifies it by creating a KOHDataset."""
-    sim_file = os.path.join(data_dir, f"{file_name}_simulation.json")
-    obs_file = os.path.join(data_dir, f"{file_name}_observation.json")
+    config = load_config_from_path(config)
+    file_name = config.FILE_NAME
+
+    sim_file = os.path.join(data_dir, file_name, "simulation.json")
+    obs_file = os.path.join(data_dir, file_name, "observation.json")
 
     try:
         with open(sim_file, "r") as f:
@@ -67,30 +78,13 @@ def load_and_verify(file_name, data_dir):
         comp_dataset = gpx.Dataset(X=jnp.hstack([xc, tc_normalized]), y=yc_centered)
         koh_dataset = kgx.KOHDataset(field_dataset, comp_dataset)
 
-        print(f"Successfully verified dataset '{file_name}'.")
+        print(f"Successfully verified dataset under 'data/{file_name}/'.")
         print(f"Field dataset size: {field_dataset.n}")
         print(f"Computer model dataset size: {comp_dataset.n}\n")
 
         print(koh_dataset)
 
     except Exception as e:
-        print(f"An error occurred during KOHDataset creation for '{file_name}': {e}")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Verify a generated dataset.")
-    parser.add_argument(
-        "--file-name",
-        type=str,
-        required=True,
-        help="Base name of the dataset to verify (e.g., sin-a)",
-    )
-    parser.add_argument(
-        "--data-dir",
-        type=str,
-        default="data",
-        help="Directory where the data is stored.",
-    )
-    args = parser.parse_args()
-
-    load_and_verify(args.file_name, args.data_dir)
+        print(
+            f"An error occurred during KOHDataset creation for data under 'data/{file_name}/': {e}"
+        )
