@@ -1,11 +1,12 @@
 from typing import Dict, Tuple
 
+import arviz
+import cola
+import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
+from gpjax.distributions import GaussianDistribution
 from kohgpjax import KOHDataset
-
-# from data.true_funcs import TrueParams
-
 
 plot_style = {
     "mathtext.fontset": "cm",
@@ -27,7 +28,8 @@ def plot_sim_sample(
     kohdataset: KOHDataset,
     tminmax: Dict[str, Tuple[float, float]],
     ycmean: float,
-    num_samples: int = 5,
+    num_samples: int = None,
+    alpha: float = 0.3,
 ) -> tuple[plt.Figure, plt.Axes]:
     """
     Plot a sample of the simulation data.
@@ -35,7 +37,8 @@ def plot_sim_sample(
         kohdataset: KOHDataset object containing the simulation data.
         tminmax: dictionary containing the minimum and maximum values for each calibration parameter.
         ycmean: mean value of the y-coordinates for the simulation data.
-        num_samples: number of samples to plot.
+        num_samples: number of samples to plot. If None, plot all.
+        alpha: transparency of the simulation lines.
     Returns:
         Tuple containing the figure and axes of the plot.
     """
@@ -50,23 +53,47 @@ def plot_sim_sample(
 
     fig, ax = plt.subplots(1, 1)
 
-    ax.scatter(xf, yf, label="Observations")
+    ax.scatter(xf, yf, label="Observations", color="black", zorder=10)
 
-    rng = np.random.default_rng()
-    ts = rng.permutation(np.unique(tc, axis=0))[:num_samples]
-    for t in ts:
+    unique_ts = np.unique(tc, axis=0)
+
+    if num_samples is not None and num_samples < len(unique_ts):
+        rng = np.random.default_rng()
+        ts = rng.permutation(unique_ts)[:num_samples]
+    else:
+        ts = unique_ts
+
+    # Sort ts by the first parameter for consistent coloring if we were using colors,
+    # but here we just plot lines.
+
+    for i, t in enumerate(ts):
         rows = np.all(tc == t, axis=1)
-        label = [f"{ti:.2f}" for ti in t]
-        ax.plot(xc[rows], yc[rows], "--", label=f"$t$=({', '.join(label)})")
+        # Sort by x to ensure lines are drawn correctly
+        x_rows = xc[rows]
+        y_rows = yc[rows]
+        sort_idx = np.argsort(x_rows)
+
+        label = None
+        if len(ts) <= 10:
+            label_vals = [f"{ti:.2f}" for ti in t]
+            label = f"$t$=({', '.join(label_vals)})"
+        elif i == 0:
+            label = "Simulations"
+
+        ax.plot(
+            x_rows[sort_idx],
+            y_rows[sort_idx],
+            "--",
+            label=label,
+            alpha=alpha,
+            color="C0",
+        )
 
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     ax.legend()
 
     return fig, ax
-
-
-import arviz
 
 
 def plot_pairwise_samples(
@@ -96,11 +123,11 @@ def plot_posterior_chains_with_priors(
     plot_style=plot_style,
     **kwargs,
 ) -> plt.Axes:
-    true_params = {p["name"]: p["true_value"] for p in config.PARAMETERS}
-    true_values = {"epsilon_precision": 1 / np.array(config.OBS_NOISE_STD) ** 2} | {
-        f"theta_{i}": true_params[f"t{i}"] for i in range(config.N_CALIB_PARAMS)
-    }
-    lines = [(name, {}, value) for name, value in true_values.items()]
+    # true_params = {p["name"]: p["true_value"] for p in config.PARAMETERS}
+    # true_values = {"epsilon_precision": 1 / np.array(config.OBS_NOISE_STD) ** 2} | {
+    #     f"theta_{i}": true_params[f"t{i}"] for i in range(config.N_CALIB_PARAMS)
+    # }
+    # lines = [(name, {}, value) for name, value in true_values.items()]
 
     # Plot the prior, posterior, true values (if known) and chains
     with plt.style.context(plot_style):
@@ -109,7 +136,7 @@ def plot_posterior_chains_with_priors(
             figsize=figsize,
             legend=True,
             compact=False,
-            lines=lines,
+            # lines=lines,
             **kwargs,
         )
 
@@ -123,19 +150,25 @@ def plot_posterior_chains_with_priors(
             x_pdf = x
 
             # Transform the x-axis to a range suitable for the theta prior distributions
+            jacobian = 1.0
             if title in tminmax:
                 tmin, tmax = tminmax[title]
                 x_pdf = (x_pdf - tmin) / (tmax - tmin)
+                jacobian = 1.0 / (tmax - tmin)
 
             prior_dist = model_parameters.priors_flat[
                 tracer_index_dict[title]
             ].distribution
-            pdf = np.exp(prior_dist.log_prob(x_pdf))
+            pdf = np.exp(prior_dist.log_prob(x_pdf)) * jacobian
 
-            if title in tminmax:
-                print(prior_dist.low, prior_dist.high)
-                print(tmin, tmax)
+            # if title in tminmax:
+            #     print(prior_dist.low, prior_dist.high)
+            #     print(tmin, tmax)
 
+            # Scaling factor to make prior visible against the posterior KDE
+            # Arviz KDEs are densities, so this should ideally be 1.0 if we want to compare densities.
+            # However, keeping a scaling factor might be useful if the posterior is very peaked.
+            # Removing the hardcoded 1000 factor to try and match density scale.
             axes[i, 0].plot(x, pdf, color="red", linestyle="--", label="Prior")
             axes[i, 0].legend()
 
@@ -198,10 +231,6 @@ def gen_plot_test_data(
     return x_test, theta_arr
 
 
-from gpjax.distributions import GaussianDistribution
-import jax.numpy as jnp
-
-
 def plot_GP(
     ax: plt.Axes,
     x: np.ndarray,
@@ -238,9 +267,6 @@ def plot_GP(
     return ax
 
 
-from typing import Callable
-
-
 def plot_f_eta(
     config,
     x_test: np.ndarray,
@@ -253,9 +279,7 @@ def plot_f_eta(
 
     x0_plot = x_test[:, 0]
     true_params = {p["name"]: p["true_value"] for p in config.PARAMETERS}
-    thetas_true = np.tile(
-        np.array(list(true_params.values())), (x0_plot.shape[0], 1)
-    )
+    thetas_true = np.tile(np.array(list(true_params.values())), (x0_plot.shape[0], 1))
 
     theta_label_components = [
         f"{theta:.2f}" for theta in thetas_test[0, : config.N_CALIB_PARAMS]
@@ -341,9 +365,6 @@ def plot_f_zeta(
     ax.set_xlabel("x")
     ax.set_ylabel("Z")
     return fig, ax
-
-
-import cola
 
 
 def plot_f_delta(

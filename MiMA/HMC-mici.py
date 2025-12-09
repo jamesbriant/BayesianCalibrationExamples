@@ -1,3 +1,6 @@
+import os
+from datetime import datetime
+
 import arviz
 import gpjax as gpx
 import jax
@@ -5,13 +8,13 @@ import jax.random as jr
 import kohgpjax as kgx
 import mici
 import numpy as np
+from jax import config
+from kohgpjax.parameters import ModelParameters
+
 from argparser import get_base_parser
 from datahandler import load, save_chains_to_netcdf, transform_chains
 from freethreading import process_workers
-from jax import config
-from kohgpjax.parameters import ModelParameters
-from models.calib8 import Model, get_ModelParameterPriorDict
-from utils import load_config_from_path
+from utils import load_config_from_model_dir, load_model_from_model_dir
 
 config.update("jax_enable_x64", True)
 
@@ -22,7 +25,7 @@ print("JAX Device:", jax.devices())
 
 
 def main(
-    config_path: str,
+    model_dir: str,
     n_warm_up_iter: int,
     n_main_iter: int,
     seed: int,
@@ -32,7 +35,7 @@ def main(
 ):
     """Main function to run the MCMC sampling process.
     Args:
-        config_path (str): Path to the configuration module.
+        model_dir (str): Path to the model directory.
         n_warm_up_iter (int): Number of warm-up iterations for MCMC.
         n_main_iter (int): Number of main iterations for MCMC.
         seed (int): Random seed for reproducibility.
@@ -41,20 +44,26 @@ def main(
         max_tree_depth (int): Maximum tree depth for the NUTS sampler.
     """
     # Load the config file
-    config = load_config_from_path(config_path)
-    file_name = config.FILE_NAME
+    config_module = load_config_from_model_dir(model_dir)
+    experiment_config = config_module.experiment_config
+    file_name = experiment_config.name
+    Model, get_ModelParameterPriorDict = load_model_from_model_dir(model_dir)
+
+    # Determine data root relative to this script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    data_root = os.path.join(script_dir, "data")
 
     # Load the dataset
     print(f"Loading dataset from {file_name}...")
     kohdataset, tminmax, yc_mean = load(
-        file_name=file_name,
-        data_dir="data",
+        experiment_config=experiment_config,
+        data_root=data_root,
     )
 
     n_sim = kohdataset.num_sim_obs
     print(kohdataset)
 
-    prior_dict = get_ModelParameterPriorDict(config, tminmax)
+    prior_dict = get_ModelParameterPriorDict(config_module, tminmax)
     model_parameters = ModelParameters(prior_dict=prior_dict)
 
     # MCMC setup
@@ -106,6 +115,94 @@ def main(
         mici.adapters.OnlineCovarianceMetricAdapter(),
     ]
 
+    # --- Save backend, algorithm, and parameter details ---
+    import importlib.metadata
+    import json
+    import sys
+
+    try:
+        mici_version = importlib.metadata.version("mici")
+    except Exception:
+        mici_version = None
+    try:
+        jax_version = importlib.metadata.version("jax")
+    except Exception:
+        jax_version = None
+    try:
+        numpy_version = importlib.metadata.version("numpy")
+    except Exception:
+        numpy_version = None
+    try:
+        gpjax_version = importlib.metadata.version("gpjax")
+    except Exception:
+        gpjax_version = None
+    try:
+        kohgpjax_version = importlib.metadata.version("kohgpjax")
+    except Exception:
+        kohgpjax_version = None
+
+    # Algorithm parameters: sampler class and settings
+    def filter_json_serializable(d):
+        out = {}
+        for k, v in d.items():
+            if callable(v):
+                continue
+            # Try to convert numpy/jax arrays to lists or floats
+            try:
+                import jax.numpy as jnp
+                import numpy as np
+
+                if isinstance(v, (np.ndarray, jnp.ndarray)):
+                    v = v.tolist()
+                elif isinstance(v, (np.generic, jnp.generic)):
+                    v = float(v)
+            except Exception:
+                pass
+            # Only keep simple types
+            if isinstance(v, (str, int, float, bool, list, dict, type(None))):
+                out[k] = v
+        return out
+
+    algorithm_parameters = {
+        "sampler_class": sampler.__class__.__name__,
+        "max_tree_depth": max_tree_depth,
+        "adapters": [a.__class__.__name__ for a in adapters],
+        "adapter_settings": [
+            filter_json_serializable(getattr(a, "__dict__", {})) for a in adapters
+        ],
+    }
+
+    # MCMC parameters
+    mcmc_parameters = {
+        "n_chain": n_chain,
+        "n_warm_up_iter": n_warm_up_iter,
+        "n_main_iter": n_main_iter,
+        "seed": seed,
+        "n_processes": n_processes,
+        "model_dir": model_dir,
+    }
+
+    # CLI command
+    cli_command = " ".join(sys.argv)
+
+    # Library versions
+    library_versions = {
+        "mici": mici_version,
+        "jax": jax_version,
+        "numpy": numpy_version,
+        "gpjax": gpjax_version,
+        "kohgpjax": kohgpjax_version,
+    }
+
+    settings = {
+        "backend": "mici",
+        "algorithm": "DynamicMultinomialHMC",
+        "algorithm_parameters": algorithm_parameters,
+        "mcmc_parameters": mcmc_parameters,
+        "library_versions": library_versions,
+        "cli_command": cli_command,
+    }
+
     def trace_func(state):
         trace = {key: state.pos[index] for key, index in tracer_index_dict.items()}
         trace["hamiltonian"] = system.h(state)
@@ -126,6 +223,21 @@ def main(
 
     print(arviz.summary(traces_transformed))
 
+    # Create a unique run directory
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_id = f"{timestamp}_W{n_warm_up_iter}_N{n_main_iter}"
+
+    # Determine output directory relative to this script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    output_dir = os.path.join(script_dir, "experiments", file_name, run_id)
+
+    print(f"Saving results to {output_dir}")
+
+    # Ensure output directory exists before writing JSON
+    os.makedirs(output_dir, exist_ok=True)
+    with open(os.path.join(output_dir, "mcmc_settings.json"), "w") as f:
+        json.dump(settings, f, indent=2)
+
     save_chains_to_netcdf(
         raw_traces=traces,
         transformed_traces=traces_transformed,
@@ -135,6 +247,7 @@ def main(
         n_sim=n_sim,
         ycmean=yc_mean,
         inference_library_name="mici",
+        output_dir=output_dir,
     )
 
 
@@ -146,13 +259,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--max_tree_depth",
         type=int,
-        default=10,
+        default=5,
         help="Maximum tree depth for the NUTS sampler.",
     )
     args = parser.parse_args()
 
+    # Use the model_dir positional argument from the base parser
     main(
-        config_path=args.config,
+        model_dir=args.model_dir,
         n_warm_up_iter=args.W,
         n_main_iter=args.N,
         seed=args.seed,

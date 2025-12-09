@@ -2,24 +2,35 @@ import argparse
 import os
 
 import matplotlib.pyplot as plt
-from dataloader import load
+from datahandler import load
 from plotting import plot_sim_sample
+from utils import load_config_from_path
 
 
-def main(experiment_name: str, data_dir: str, dpi: int = 300):
-    kohdataset, tminmax, ycmean = load(file_name=experiment_name, data_dir=data_dir)
+def main(
+    config_path: str,
+    dpi: int = 300,
+    num_samples: int = None,
+    alpha: float = 0.3,
+    output_dir: str = None,
+):
+    config_module = load_config_from_path(config_path)
+    experiment_config = config_module.experiment_config
+    experiment_name = experiment_config.name
+
+    kohdataset, tminmax, ycmean = load(
+        experiment_config=experiment_config, data_root="data"
+    )
 
     # 6 Plotting
     # 6.0 Create the directory for figures if it doesn't exist
-    print("Creating figures directory...")
-    os.makedirs(os.path.join("figures", experiment_name), exist_ok=True)
-    # if not os.path.exists("figures"):
-    #     print("Creating figures directory...")
-    #     os.makedirs("figures")
+    if output_dir:
+        save_dir = output_dir
+    else:
+        print("Creating figures directory...")
+        save_dir = os.path.join("figures", experiment_name)
 
-    # if not os.path.exists(f"figures/{experiment_name}"):
-    #     print(f"Creating figures/{experiment_name} directory...")
-    #     os.makedirs(f"figures/{experiment_name}")
+    os.makedirs(save_dir, exist_ok=True)
 
     print("Plotting...")
 
@@ -28,8 +39,10 @@ def main(experiment_name: str, data_dir: str, dpi: int = 300):
         kohdataset=kohdataset,
         tminmax=tminmax,
         ycmean=ycmean,
+        num_samples=num_samples,
+        alpha=alpha,
     )
-    plt.savefig(f"figures/{experiment_name}/obs-and-sim-sample.png", dpi=dpi)
+    plt.savefig(os.path.join(save_dir, "obs-and-sim-sample.png"), dpi=dpi)
     plt.close()
 
 
@@ -40,15 +53,10 @@ if __name__ == "__main__":
     )
     # 0.2. Add arguments
     parser.add_argument(
-        "experiment_name",
+        "--config",
         type=str,
-        help="name of config file without extension (e.g., 'config_sin-a' or 'calib8)",
-    )
-    parser.add_argument(
-        "--data_dir",
-        type=str,
-        default="data",
-        help="Directory where the data files are stored. Default is 'data'.",
+        required=True,
+        help="Path to config file",
     )
     # default dpi=300
     parser.add_argument(
@@ -57,11 +65,30 @@ if __name__ == "__main__":
         default=300,
         help="DPI for saving figures. Default is 300.",
     )
+    parser.add_argument(
+        "--num_samples",
+        type=int,
+        default=None,
+        help="Number of simulation samples to plot. Default is all.",
+    )
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=0.3,
+        help="Transparency of simulation lines. Default is 0.3.",
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        help="Directory to save the plot",
+    )
     # 0.3. Parse the arguments
     args = parser.parse_args()
 
     main(
-        experiment_name=args.experiment_name,
-        data_dir=args.data_dir,
+        config_path=args.config,
         dpi=args.dpi,
+        num_samples=args.num_samples,
+        alpha=args.alpha,
+        output_dir=args.output_dir,
     )

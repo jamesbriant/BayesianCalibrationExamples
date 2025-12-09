@@ -1,70 +1,39 @@
 import argparse
-import arviz as az
-import matplotlib.pyplot as plt
-import numpy as np
-import jax
-import jax.numpy as jnp
-from kohgpjax import KOHDataset
-from kohgpjax.parameters import ModelParameters
 import os
 
+import arviz as az
+import datahandler
+import jax
+import matplotlib.pyplot as plt
+import numpy as np
+from kohgpjax.parameters import ModelParameters
 from plotting import (
-    gen_x_test_data,
-    gen_plot_test_data,
     gen_GP_test_data,
-    plot_f_eta,
+    gen_plot_test_data,
+    gen_x_test_data,
     plot_f_delta,
+    plot_f_eta,
     plot_f_zeta,
     plot_pairwise_samples,
     plot_posterior_chains_with_priors,
     plot_sim_sample,
 )
-import datahandler
-from models.calib8 import Model, get_ModelParameterPriorDict
-from utils import load_config_from_path
+from utils import load_config_from_path, load_model_from_config
 
 
-def main():
-    # 0.1. Parse command line arguments
-    parser = argparse.ArgumentParser(
-        description="Plotting script for KOHGPJax models from MCMC posterior data."
-    )
-    # 0.2. Add arguments
-    parser.add_argument(
-        "--config",
-        type=str,
-        required=True,
-        help="Path to the configuration module (e.g., configs/calib8.py)",
-    )
-    parser.add_argument(
-        "file_path",
-        type=str,
-        help="Path to the file containing the MCMC posterior data.",
-    )
-    # default dpi=300
-    parser.add_argument(
-        "--dpi",
-        type=int,
-        default=300,
-        help="DPI for saving figures. Default is 300.",
-    )
-    # 0.3. Parse the arguments
-    args = parser.parse_args()
-    # 0.4. Access the arguments
-    config_path = args.config
-    file_path = args.file_path
-
+def main(config_path: str, file_path: str, dpi: int = 300):
     # Load the config file
     config = load_config_from_path(config_path)
+    Model, get_ModelParameterPriorDict = load_model_from_config(config)
 
-    experiment_name = file_path.split("/")[1]
-    file_name = file_path.split("/")[-1].split(".")[0]
-    file_extension = file_path.split("/")[-1].split(".")[-1]
-    print(f"File: {file_path}")
+    # experiment_name = file_path.split("/")[1]
+    # file_name = file_path.split("/")[-1].split(".")[0]
+    # file_extension = file_path.split("/")[-1].split(".")[-1]
+    # print(f"File: {file_path}")
 
     # 1.1 Load the KOHDataset and normalization information
     kohdataset, tminmax, ycmean = datahandler.load(
-        file_name=config.FILE_NAME,
+        experiment_name=config.FILE_NAME,
         data_dir="data",
     )
 
@@ -114,12 +83,14 @@ def main():
     print(test_GP.shape)
 
     # 3.5 Generate the full dataset
-    dataset = kohdataset.get_dataset(theta_vec_GP[: config.N_CALIB_PARAMS].reshape(1, -1))
+    dataset = kohdataset.get_dataset(
+        theta_vec_GP[: config.N_CALIB_PARAMS].reshape(1, -1)
+    )
     print(dataset)
 
     # 4 Build the GP models
     # 4.2 Get the prior dictionary and create model parameters
-    prior_dict = get_ModelParameterPriorDict(tminmax)
+    prior_dict = get_ModelParameterPriorDict(config, tminmax)
     model_parameters = ModelParameters(prior_dict=prior_dict)
 
     # 4.3 Create the model instance
@@ -138,7 +109,9 @@ def main():
             tmax - tmin
         )  # Normalise theta_i to [0, 1]
 
-    thetas = jnp.array([GP_params_flat[f"theta_{i}"] for i in range(config.N_CALIB_PARAMS)])
+    # thetas = jnp.array(
+    #     [GP_params_flat[f"theta_{i}"] for i in range(config.N_CALIB_PARAMS)]
+    # )
     GP_params = jax.tree.unflatten(prior_tree, GP_params_flat.values())
 
     # 4.5 Build the GP posterior
@@ -158,8 +131,8 @@ def main():
     zeta_pred_m = zeta_pred.mean
     zeta_pred_cov = zeta_pred.covariance_matrix
 
-    obs_pred_m = obs_pred.mean
-    obs_pred_cov = obs_pred.covariance_matrix
+    # obs_pred_m = obs_pred.mean
+    # obs_pred_cov = obs_pred.covariance_matrix
 
     # 5.2 Model discrepancy
     delta_gp_m = zeta_pred_m - eta_pred_m
@@ -180,9 +153,7 @@ def main():
         tminmax=tminmax,
         ycmean=ycmean,
     )
-    plt.savefig(
-        os.path.join(output_dir, "obs-and-sim-sample.png"), dpi=args.dpi
-    )
+    plt.savefig(os.path.join(output_dir, "obs-and-sim-sample.png"), dpi=dpi)
     plt.close()
 
     # 6.2 Plot pairwise samples
@@ -190,7 +161,7 @@ def main():
         chains,
         [p.name for p in prior_leaves],
     )
-    plt.savefig(os.path.join(output_dir, "pairs.png"), dpi=args.dpi)
+    plt.savefig(os.path.join(output_dir, "pairs.png"), dpi=dpi)
     plt.close()
 
     # 6.3 Plot posterior chains with priors
@@ -205,7 +176,7 @@ def main():
         tracer_index_dict=tracer_index_dict,
         figsize=(9, 20),
     )
-    plt.savefig(os.path.join(output_dir, "trace.png"), dpi=args.dpi)
+    plt.savefig(os.path.join(output_dir, "trace.png"), dpi=dpi)
     plt.close()
 
     # 6.4 Plot f_eta
@@ -217,7 +188,7 @@ def main():
         GP_eta=eta_pred,
         y_translation=ycmean,  # Add the mean of yc to center the observations
     )
-    plt.savefig(os.path.join(output_dir, "eta-posterior.png"), dpi=args.dpi)
+    plt.savefig(os.path.join(output_dir, "eta-posterior.png"), dpi=dpi)
     plt.close()
 
     # 6.5 Plot f_zeta
@@ -232,7 +203,7 @@ def main():
         scatter_yf=kohdataset.z,
         y_translation=ycmean,  # Add the mean of yc to center the observations
     )
-    plt.savefig(os.path.join(output_dir, "zeta-posterior.png"), dpi=args.dpi)
+    plt.savefig(os.path.join(output_dir, "zeta-posterior.png"), dpi=dpi)
     plt.close(fig)
 
     # 6.6 Plot f_delta
@@ -244,9 +215,40 @@ def main():
         delta_gp_mean=delta_gp_m,
         delta_gp_cov=delta_gp_cov,
     )
-    plt.savefig(os.path.join(output_dir, "discrepancy-posterior.png"), dpi=args.dpi)
+    plt.savefig(os.path.join(output_dir, "discrepancy-posterior.png"), dpi=dpi)
     plt.close()
 
 
 if __name__ == "__main__":
-    main()
+    # 0.1. Parse command line arguments
+    parser = argparse.ArgumentParser(
+        description="Plotting script for KOHGPJax models from MCMC posterior data."
+    )
+    # 0.2. Add arguments
+    parser.add_argument(
+        "--config",
+        type=str,
+        required=True,
+        help="Path to the configuration module (e.g., configs/calib8.py)",
+    )
+    parser.add_argument(
+        "--file_path",
+        type=str,
+        default="chains/",
+        help="Path to the file containing the MCMC posterior data.",
+    )
+    # default dpi=300
+    parser.add_argument(
+        "--dpi",
+        type=int,
+        default=300,
+        help="DPI for saving figures. Default is 300.",
+    )
+    # 0.3. Parse the arguments
+    args = parser.parse_args()
+
+    main(
+        config_path=args.config,
+        file_path=args.file_path,
+        dpi=args.dpi,
+    )
