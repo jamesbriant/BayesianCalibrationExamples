@@ -5,6 +5,8 @@ test/
 timings/
 validation/
 
+data/
+experiments/
 figures/
 chains/
 HPC/
@@ -12,6 +14,7 @@ HPC/
 *.csv
 *.nc
 *.json
+*.zip
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
