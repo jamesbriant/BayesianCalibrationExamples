@@ -99,7 +99,6 @@ def load(
     xf = jnp.array(obs_data["lat"]).reshape(-1, 1).astype(jnp.float64)
     yf = jnp.array(obs_data[variable_name]).reshape(-1, 1).astype(jnp.float64)
 
-
     # --- Build Xc matrix robustly for any number of calibration parameters ---
     # Identify all relevant coordinates: lat + calibration parameters
     coords = sim_data.coords
@@ -113,12 +112,12 @@ def load(
     # Sort to ensure deterministic order (t, tau, etc.)
     non_lat_coords_sorted = sorted(non_lat_coords)
     # If 't' is present, always put it first (for legacy)
-    if 't' in non_lat_coords_sorted:
-        non_lat_coords_sorted.remove('t')
-        non_lat_coords_sorted = ['t'] + non_lat_coords_sorted
+    if "t" in non_lat_coords_sorted:
+        non_lat_coords_sorted.remove("t")
+        non_lat_coords_sorted = ["t"] + non_lat_coords_sorted
 
     # Map config param order to coord order
-    param_coord_names = non_lat_coords_sorted[:len(experiment_config.parameters)]
+    param_coord_names = non_lat_coords_sorted[: len(experiment_config.parameters)]
 
     # Stack only over actual dimensions (not coordinates)
     # Exclude variable_name from stack dims

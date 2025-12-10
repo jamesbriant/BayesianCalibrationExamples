@@ -29,7 +29,8 @@ def plot_sim_sample(
     tminmax: Dict[str, Tuple[float, float]],
     ycmean: float,
     num_samples: int = None,
-    alpha: float = 0.3,
+    alpha: float = 0.9,
+    sample_step: int = 1,
 ) -> tuple[plt.Figure, plt.Axes]:
     """
     Plot a sample of the simulation data.
@@ -57,28 +58,26 @@ def plot_sim_sample(
 
     unique_ts = np.unique(tc, axis=0)
 
-    if num_samples is not None and num_samples < len(unique_ts):
-        rng = np.random.default_rng()
-        ts = rng.permutation(unique_ts)[:num_samples]
-    else:
-        ts = unique_ts
+    # Thin the simulation runs by sample_step
+    ts_thinned = unique_ts[::sample_step]
 
-    # Sort ts by the first parameter for consistent coloring if we were using colors,
-    # but here we just plot lines.
+    if num_samples is not None and num_samples < len(ts_thinned):
+        rng = np.random.default_rng()
+        ts = rng.permutation(ts_thinned)[:num_samples]
+    else:
+        ts = ts_thinned
+
+    # Use a color cycle for each simulation
+    color_cycle = plt.cm.get_cmap("tab10", len(ts))
 
     for i, t in enumerate(ts):
         rows = np.all(tc == t, axis=1)
-        # Sort by x to ensure lines are drawn correctly
         x_rows = xc[rows]
         y_rows = yc[rows]
         sort_idx = np.argsort(x_rows)
 
-        label = None
-        if len(ts) <= 10:
-            label_vals = [f"{ti:.2f}" for ti in t]
-            label = f"$t$=({', '.join(label_vals)})"
-        elif i == 0:
-            label = "Simulations"
+        label_vals = [f"{ti:.2f}" for ti in t]
+        label = f"Sim {i + 1}: $t$=({', '.join(label_vals)})"
 
         ax.plot(
             x_rows[sort_idx],
@@ -86,7 +85,7 @@ def plot_sim_sample(
             "--",
             label=label,
             alpha=alpha,
-            color="C0",
+            color=color_cycle(i),
         )
 
     ax.set_xlabel("x")
