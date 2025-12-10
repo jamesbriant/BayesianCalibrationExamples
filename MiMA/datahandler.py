@@ -102,7 +102,6 @@ def load(
     # --- Build Xc matrix robustly for any number of calibration parameters ---
     # Identify all relevant coordinates: lat + calibration parameters
     coords = sim_data.coords
-    lat_vals = coords["lat"].to_numpy()
 
     # Map config parameter names to actual NetCDF coordinate names
     # Assume: first calibration parameter in config matches 't', second matches 'tau', etc.
