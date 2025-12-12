@@ -1,5 +1,8 @@
-import argparse
 import os
+import sys
+
+# Add parent directory to path to allow importing utils
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import arviz as az
 import jax
@@ -12,7 +15,7 @@ from datahandler import load
 from utils import load_config_from_model_dir, load_model_from_model_dir
 
 
-def main(model_dir, file_path, dpi=300, output_dir=None):
+def run(model_dir, file_path, dpi=300, output_dir=None):
     # Load config
     config_module = load_config_from_model_dir(model_dir)
     experiment_config = config_module.experiment_config
@@ -207,16 +210,3 @@ def main(model_dir, file_path, dpi=300, output_dir=None):
     plt.savefig(os.path.join(save_dir, "ppc.png"), dpi=dpi)
     plt.close()
     print(f"Saved PPC plot to {save_dir}/ppc.png")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model_dir", type=str, required=True)
-    parser.add_argument(
-        "--file_path", type=str, required=True, help="Path to NetCDF chain file"
-    )
-    parser.add_argument("--dpi", type=int, default=300)
-    parser.add_argument("--output_dir", type=str, help="Directory to save the plot")
-    args = parser.parse_args()
-    main(args.model_dir, args.file_path, dpi=args.dpi, output_dir=args.output_dir)
-    main(args.model_dir, args.file_path, dpi=args.dpi, output_dir=args.output_dir)

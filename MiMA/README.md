@@ -1,82 +1,94 @@
-# Calib8 Experiment Workflow
+# MiMA Calibration Workflow
 
-This directory contains a modular workflow for running Bayesian calibration experiments. The workflow is designed to be configuration-driven, allowing for easy definition and execution of new experiments.
+This directory contains a modular workflow for running Bayesian calibration experiments using the **MiMA** toolkit. The workflow is centralized around the `mima.py` Command Line Interface (CLI).
 
 ## Workflow Overview
 
-The typical workflow is as follows:
+The typical workflow involves:
+1.  **Running HMC Sampling**: Calibrate the model using MCMC (Mici or BlackJax backends).
+2.  **Analysis & Plotting**: Generate diagnostic plots, predictive checks, and posterior analysis.
 
-1. Define an experiment in a config file.
-2. Generate simulation and observation data.
-3. Run HMC sampling to obtain posterior distributions.
-4. Plot the results.
+## unified CLI: `mima.py`
 
-All commands below should be run from within the `calib8/` directory.
+All main operations are performed using the `mima.py` script.
 
-## 1. Defining an Experiment
+### 1. Running MCMC (`run`)
 
-An experiment is defined by a Python configuration file located in the `configs/` directory (e.g., `configs/calib8.py`). This file contains all the necessary parameters and functions for the experiment, including:
-
-- **Parameter Definitions**: `PARAMETERS` and `CONTROL_PARAMETERS` define the calibration and control parameters, their true values, and their ranges.
-- **Data Generation Settings**: `N_SIMULATION_RUNS`, `N_SIMULATION_POINTS`, etc.
-- **Simulator Functions**: The config file must also contain the Python functions for the computer model (`eta`), the discrepancy (`discrepancy`), and the true physical process (`zeta`).
-
-## 2. Generating Data
-
-Once a configuration file is defined, you can generate the simulation and observation data.
+Run Hamiltonian Monte Carlo sampling for a specific model.
 
 ```bash
-python -m data_generator.generate --config configs/calib8.py
+python mima.py run <model_dir> -W <warmup> -N <main_iter> --n_chain <chains> --backend <backend>
 ```
 
-This command will create `calib8_simulation.json` and `calib8_observation.json` in the `data/` directory within `calib8`.
+**Arguments:**
+*   `model_dir`: Path to the model directory (e.g., `models/T21`).
+*   `-W`, `--warmup`: Number of warmup iterations (default: 100).
+*   `-N`, `--main`: Number of main sampling iterations (default: 100).
+*   `--n_chain`: Number of chains (default: 1).
+*   `--backend`: MCMC backend to use, either `mici` (default) or `blackjax`.
 
-### Verifying the Data
-
-After generating the data, you can verify that it has been created correctly and can be loaded. Create a simple Python script or use an interactive Python session within the `calib8/` directory to run the following:
-
-```python
-from utils import verify_data
-
-# Replace 'calib8' with the FILE_NAME from your config
-verify_data("calib8")
+**Example:**
+```bash
+python mima.py run models/T21 -W 100 -N 100 --backend mici
 ```
 
-This will print details about the loaded dataset if successful.
+Output is saved to `experiments/<ModelName>/<Timestamp>_W<W>_N<N>/`.
 
-## 3. Running HMC Sampling
+### 2. Plotting Results (`plot`)
 
-With the data generated, you can run Hamiltonian Monte Carlo (HMC) sampling to calibrate the model. Two inference backends are available: Mici and BlackJax.
+Generate various plots from the experiment results.
 
-**Using Mici:**
+**Diagnostic Plots (Trace, Autocorr, ESS):**
+```bash
+python mima.py plot trace --model_dir <experiment_run_dir>/model --output_dir <experiment_run_dir>
+```
+
+**Posterior Predictive Check (PPC):**
+```bash
+python mima.py plot ppc --model_dir <experiment_run_dir>/model --file_path <experiment_run_dir>/<chain_file>.nc --output_dir <experiment_run_dir>/ppc
+```
+
+**Simulation Samples:**
+```bash
+python mima.py plot sim_sample --model_dir <experiment_run_dir>/model --output_dir <experiment_run_dir>
+```
+
+**Predictions (Experimental):**
+```bash
+python mima.py plot predictions --model_dir <experiment_run_dir>/model --output_dir <experiment_run_dir>
+```
+
+### 3. Analyzing Posterior (`analyze`)
+
+Calculate statistics, find local optima, and export results to JSON.
 
 ```bash
-python HMC-mici.py --config configs/calib8.py -W 1000 -N 1000 --n_chain 2 --n_processes 2 --max_tree_depth 10
+python mima.py analyze <experiment_run_dir>
 ```
 
-**Using BlackJax:**
-
+**Example:**
 ```bash
-python HMC-blackjax.py --config configs/calib8.py -W 1000 -N 1000 --n_chain 2 --max_num_doublings 10
+python mima.py analyze experiments/T21/20251212_120000_W100_N100
 ```
 
-- `-W`: Number of warm-up iterations.
-- `-N`: Number of main sampling iterations.
-- `--n_chain`: Number of MCMC chains to run.
-- `--n_processes`: (Mici only) Number of processes to use for parallel computation.
-- `--max_tree_depth`: (Mici only) Maximum tree depth for the NUTS sampler.
-- `--max_num_doublings`: (BlackJax only) Maximum number of doublings for the NUTS sampler.
+## Automated Pipeline: `run_analysis.sh`
 
-The results will be saved in a structured directory. For an experiment named `calib8` (defined by `FILE_NAME` in the config), the output will be in `chains/calib8/`. The saved file is a NetCDF file containing an ArviZ `InferenceData` object.
+The `run_analysis.sh` script automates the entire process: running MCMC, archiving model files, and generating all plots and analysis.
 
-## 4. Plotting Results
-
-After sampling is complete, you can generate plots from the results file.
-
+**Usage:**
 ```bash
-python plotting-script.py --config configs/calib8.py chains/calib8/W1000-N1000-Nsim80.nc
+./run_analysis.sh <model_dir> <warmup> <main_iter> <n_chain> <backend>
 ```
 
-Make sure to replace the `.nc` file path with the actual path to your results file. The `Nsim` value may vary depending on your config.
+**Example:**
+```bash
+./run_analysis.sh models/T21 100 100 1 mici
+```
 
-The plots will be saved in a corresponding structured directory. For an experiment named `calib8`, the figures will be in `figures/calib8/`.
+## Directory Structure
+
+*   `mima.py`: Main CLI entry point.
+*   `runners/`: Contains MCMC runner implementations (`mici.py`, `blackjax.py`).
+*   `analysis/`: Contains analysis and plotting scripts (`posterior.py`, `diagnostics.py`, etc.).
+*   `models/`: Directory containing model definitions (each model has its own folder with `model.py` and `config.py`).
+*   `experiments/`: Output directory where experiment results, plots, and analysis are saved.

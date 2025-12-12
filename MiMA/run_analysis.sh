@@ -32,11 +32,8 @@ EXP_NAME=$(basename "$MODEL_DIR")
 
 echo "[1/6] Running MCMC Sampling ($BACKEND)..."
 # Stream output from conda-run and run Python unbuffered for live progress
-if [ "$BACKEND" = "blackjax" ]; then
-    PYTHONUNBUFFERED=1 conda run --no-capture-output -n $ENV python -u HMC-blackjax.py "$MODEL_DIR" "$WARMUP" "$MAIN" --n_chain "$N_CHAIN"
-else
-    PYTHONUNBUFFERED=1 conda run --no-capture-output -n $ENV python -u HMC-mici.py "$MODEL_DIR" "$WARMUP" "$MAIN" --n_chain "$N_CHAIN"
-fi
+# Note: we use python mima.py run ...
+PYTHONUNBUFFERED=1 conda run --no-capture-output -n $ENV python -u mima.py run "$MODEL_DIR" -W "$WARMUP" -N "$MAIN" --n_chain "$N_CHAIN" --backend "$BACKEND"
 if [ $? -ne 0 ]; then
     echo "Error: MCMC sampling failed."
     exit 1
@@ -79,14 +76,14 @@ else
 fi
 
 echo "[2/6] Plotting Data Samples..."
-conda run -n $ENV python plot_sim_sample.py --model_dir "$LATEST_RUN_DIR/model" --output_dir "$LATEST_RUN_DIR" --sample_step "$SAMPLE_STEP" --alpha 0.9
+conda run -n $ENV python mima.py plot sim_sample --model_dir "$LATEST_RUN_DIR/model" --output_dir "$LATEST_RUN_DIR" --sample_step "$SAMPLE_STEP" --alpha 0.9
 if [ $? -ne 0 ]; then
     echo "Error: Data plotting failed."
     exit 1
 fi
 
 echo "[3/6] Generating Diagnostic Plots..."
-conda run -n $ENV python plot_diagnostics.py --model_dir "$LATEST_RUN_DIR/model" --output_dir "$LATEST_RUN_DIR"
+conda run -n $ENV python mima.py plot trace --model_dir "$LATEST_RUN_DIR/model" --output_dir "$LATEST_RUN_DIR"
 if [ $? -ne 0 ]; then
     echo "Error: Diagnostics plotting failed."
     exit 1
@@ -103,7 +100,7 @@ if [ -z "$CHAIN_FILE" ]; then
 fi
 
 echo "Using chain file: $CHAIN_FILE"
-conda run -n $ENV python plot_ppc.py --model_dir "$LATEST_RUN_DIR/model" --file_path "$CHAIN_FILE" --output_dir "$LATEST_RUN_DIR/ppc"
+conda run -n $ENV python mima.py plot ppc --model_dir "$LATEST_RUN_DIR/model" --file_path "$CHAIN_FILE" --output_dir "$LATEST_RUN_DIR/ppc"
 if [ $? -ne 0 ]; then
     echo "Error: PPC plotting failed."
     exit 1
@@ -111,13 +108,13 @@ fi
 
 # 5. Plot Predictions (may be experimental)
 echo "[5/6] Plotting Predictions (experimental)..."
-conda run -n $ENV python plot_predictions.py --model_dir "$MODEL_DIR" --output_dir "$LATEST_RUN_DIR"
+conda run -n $ENV python mima.py plot predictions --model_dir "$LATEST_RUN_DIR/model" --output_dir "$LATEST_RUN_DIR"
 if [ $? -ne 0 ]; then
     echo "Warning: plot_predictions failed (continuing)."
 fi
 
 echo "[6/6] Analyzing Posterior..."
-conda run -n $ENV python analyze_posterior.py "$LATEST_RUN_DIR"
+conda run -n $ENV python mima.py analyze "$LATEST_RUN_DIR"
 if [ $? -ne 0 ]; then
     echo "Error: Posterior analysis failed."
     exit 1
