@@ -30,7 +30,7 @@ echo "----------------------------------------------------------------"
 CONFIG_PATH="$MODEL_DIR/config.py"
 EXP_NAME=$(basename "$MODEL_DIR")
 
-echo "[1/5] Running MCMC Sampling ($BACKEND)..."
+echo "[1/6] Running MCMC Sampling ($BACKEND)..."
 # Stream output from conda-run and run Python unbuffered for live progress
 if [ "$BACKEND" = "blackjax" ]; then
     PYTHONUNBUFFERED=1 conda run --no-capture-output -n $ENV python -u HMC-blackjax.py "$MODEL_DIR" "$WARMUP" "$MAIN" --n_chain "$N_CHAIN"
@@ -78,21 +78,21 @@ else
     echo "Warning: Missing $CONFIG_SRC for archiving."
 fi
 
-echo "[2/5] Plotting Data Samples..."
+echo "[2/6] Plotting Data Samples..."
 conda run -n $ENV python plot_sim_sample.py --model_dir "$LATEST_RUN_DIR/model" --output_dir "$LATEST_RUN_DIR" --sample_step "$SAMPLE_STEP" --alpha 0.9
 if [ $? -ne 0 ]; then
     echo "Error: Data plotting failed."
     exit 1
 fi
 
-echo "[3/5] Generating Diagnostic Plots..."
+echo "[3/6] Generating Diagnostic Plots..."
 conda run -n $ENV python plot_diagnostics.py --model_dir "$LATEST_RUN_DIR/model" --output_dir "$LATEST_RUN_DIR"
 if [ $? -ne 0 ]; then
     echo "Error: Diagnostics plotting failed."
     exit 1
 fi
 
-echo "[4/5] Running Posterior Predictive Checks..."
+echo "[4/6] Running Posterior Predictive Checks..."
 
 # Find the NetCDF file in the latest run directory
 CHAIN_FILE=$(ls "$LATEST_RUN_DIR"/*.nc 2>/dev/null | head -n 1)
@@ -110,10 +110,17 @@ if [ $? -ne 0 ]; then
 fi
 
 # 5. Plot Predictions (may be experimental)
-echo "[5/5] Plotting Predictions (experimental)..."
+echo "[5/6] Plotting Predictions (experimental)..."
 conda run -n $ENV python plot_predictions.py --model_dir "$MODEL_DIR" --output_dir "$LATEST_RUN_DIR"
 if [ $? -ne 0 ]; then
     echo "Warning: plot_predictions failed (continuing)."
+fi
+
+echo "[6/6] Analyzing Posterior..."
+conda run -n $ENV python analyze_posterior.py "$LATEST_RUN_DIR"
+if [ $? -ne 0 ]; then
+    echo "Error: Posterior analysis failed."
+    exit 1
 fi
 
 echo "----------------------------------------------------------------"

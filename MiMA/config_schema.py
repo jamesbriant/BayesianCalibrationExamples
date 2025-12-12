@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -76,3 +76,6 @@ class ExperimentConfig:
     n_observation_points: int = 0
 
     obs_noise_std: Optional[List[float]] = None
+
+    # Data filtering settings: {variable_name: (min, max)}
+    filters: Optional[Dict[str, Tuple[Optional[float], Optional[float]]]] = None

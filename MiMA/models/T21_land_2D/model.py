@@ -22,7 +22,7 @@ class Model(KOHModel):
             ),
             gpx.kernels.RBF(
                 active_dims=[2],
-                lengthscale=jnp.array(params["lengthscales"]["theta_0"]),
+                lengthscale=jnp.array(params["lengthscales"]["theta_1"]),
             ),
         ]
         return gpx.kernels.ProductKernel(kernels=kernels)

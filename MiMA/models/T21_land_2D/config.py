@@ -22,8 +22,13 @@ experiment_config = ExperimentConfig(
     n_control_params=1,
     output_dims=1,
     n_simulation_runs=30,
-    n_simulation_points=25,
-    n_observation_points=100,
+    n_simulation_points=32,
+    n_observation_points=72,
+    # filters={
+    #     "lat": (-70, 70),
+    #     "theta_0": (0.35, None),
+    #     "theta_1": (250, None),
+    # },
 )
 
 FILE_NAME = experiment_config.name

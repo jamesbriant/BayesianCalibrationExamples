@@ -44,31 +44,60 @@ def load(
     if getattr(experiment_config.data, "sim_nc_path", None):
         sim_nc_path = os.path.join(base_dir, experiment_config.data.sim_nc_path)
         ds = xr.open_dataset(sim_nc_path, decode_times=False)
-        # Expect variable with coords (rh, lat); rename to (t, lat) to match prior code
+
+        # Determine the run dimension and parameter coordinates
+        dims = list(ds.dims)
+        # Assuming 'lat' is spatial
+        run_dims = [
+            d
+            for d in dims
+            if d != "lat"
+            and d != variable_name
+            and d != "phalf"
+            and d != "pfull"
+            and d != "time"
+            and d != "lon"
+        ]
+
+        # Heuristic: if 'N' is present, it's the run dim. Else if 'rh' is present, it's the run dim.
+        if "N" in dims:
+            run_dim = "N"
+        elif "rh" in dims:
+            run_dim = "rh"
+        elif "t" in dims:
+            run_dim = "t"
+        else:
+            # Fallback: take the first non-lat dim
+            run_dim = run_dims[0] if run_dims else "rh"
+
         da = ds[variable_name]
-        da = da.rename({"rh": "t"})
-        # Build a dataset with expected dims
+
+        # Ensure we have a dataset with the variable
         sim_data = xr.Dataset({variable_name: da})
-        # Create t_sim_df-like structure from the 't' coordinate for later assignment
-        t_values = sim_data["t"].to_numpy()
-        t_sim_df = pd.DataFrame({0: t_values})
+
+        # If parameters are not in sim_data coords (e.g. if loaded from separate file?), but here we loaded from NC.
+        # We assume rh/tau are in coords if they define the run.
+
+        # Define stack dimensions: (run_dim, 'lat')
+        # This ensures we get Size = N_runs * N_lat
+        stack_dims = [run_dim, "lat"]
+        # Verify these dims exist
+        stack_dims = [d for d in stack_dims if d in sim_data.dims]
+
+        sim_data_flat = sim_data.stack(sample=stack_dims)
+
     else:
         # --- Load simulation parameters ---
         sim_params_path = os.path.join(base_dir, experiment_config.data.sim_params_path)
-        # Assuming the parameters file has columns corresponding to parameters
-        # If header=None, we assume columns 0, 1, ... match parameters 0, 1, ...
         t_sim_df = pd.read_csv(sim_params_path, header=None)
 
         # --- Load data files ---
         sim_pattern = os.path.join(base_dir, experiment_config.data.sim_data_pattern)
         sim_files = sorted(glob.glob(sim_pattern))
 
-        # --- Define the preprocessing function ---
         def select_vars(ds):
-            """Selects only the desired variable(s) from a dataset."""
             return ds[[variable_name]]
 
-        # --- Load datasets ---
         sim_data = xr.open_mfdataset(
             sim_files,
             combine="nested",
@@ -76,65 +105,78 @@ def load(
             preprocess=select_vars,
         )
 
-    # Assign coordinates.
-    # If we have 1 parameter, we can assign it as 't'.
-    # If we have multiple, 't' might be just an index or one of them.
-    # The original code assigned t=t_sim.
-    # Let's assume for now we assign the first parameter as 't' coordinate for xarray alignment,
-    # but we will use the full parameter set for Xc.
+        # Assign coords from t_sim_df
+        # If t_sim_df has 1 col, assign to 't'.
+        # If multiple, assign appropriately.
+        # For legacy compatibility, assume 't' is the run index/dim.
+        sim_data = sim_data.assign_coords(t=np.arange(len(t_sim_df)))
 
-    # If we have multiple parameters, we might need a dummy index or use the first one.
-    # For backward compatibility with T21 which has 1 param, we use column 0.
-    if t_sim_df.shape[1] == 1:
-        sim_data = sim_data.assign_coords(t=t_sim_df[0])
-    else:
-        # If multiple parameters, we might need a dummy index or use the first one.
-        # For backward compatibility with T21 which has 1 param, we use column 0.
-        sim_data = sim_data.assign_coords(t=t_sim_df[0])
+        # Add parameter values as coordinates
+        for i in range(t_sim_df.shape[1]):
+            # Name them param_0, param_1 etc or try to match config?
+            # Let's assign them to the 't' dimension
+            sim_data = sim_data.assign_coords({f"param_{i}": ("t", t_sim_df[i])})
 
-    obs_data = xr.open_dataset(obs_path)
+        stack_dims = ["t", "lat"]  # standard for this branch
+        sim_data_flat = sim_data.stack(sample=stack_dims)
 
     # --- Prepare field data ---
-    # Assuming 'lat' is the spatial coordinate.
+    obs_data = xr.open_dataset(obs_path)
     xf = jnp.array(obs_data["lat"]).reshape(-1, 1).astype(jnp.float64)
     yf = jnp.array(obs_data[variable_name]).reshape(-1, 1).astype(jnp.float64)
 
-    # --- Build Xc matrix robustly for any number of calibration parameters ---
-    # Identify all relevant coordinates: lat + calibration parameters
-    coords = sim_data.coords
+    # --- Build Xc matrix ---
+    # We need to construct Xc = [lat, param1, param2, ...]
 
-    # Map config parameter names to actual NetCDF coordinate names
-    # Assume: first calibration parameter in config matches 't', second matches 'tau', etc.
-    # Find all coordinates except 'lat' and variable_name
-    all_coord_names = list(coords)
-    non_lat_coords = [c for c in all_coord_names if c != "lat" and c != variable_name]
-    # Sort to ensure deterministic order (t, tau, etc.)
-    non_lat_coords_sorted = sorted(non_lat_coords)
-    # If 't' is present, always put it first (for legacy)
-    if "t" in non_lat_coords_sorted:
-        non_lat_coords_sorted.remove("t")
-        non_lat_coords_sorted = ["t"] + non_lat_coords_sorted
-
-    # Map config param order to coord order
-    param_coord_names = non_lat_coords_sorted[: len(experiment_config.parameters)]
-
-    # Stack only over actual dimensions (not coordinates)
-    # Exclude variable_name from stack dims
-    stack_dims = [d for d in sim_data.dims if d != variable_name]
-    sim_data_flat = sim_data.stack(sample=stack_dims)
-
-    # Extract coordinate values for each stacked sample
+    # Extract lat
     lat = sim_data_flat["lat"].to_numpy().reshape(-1, 1).astype(jnp.float64)
+
     tminmax = {p.name: tuple(p.range) for p in experiment_config.parameters}
     t_normalized_list = []
+
+    # Heuristic mapping for T21_land_2D and T21
+    # T21 (1D): theta_0 -> rh
+    # T21_land_2D (2D): theta_0 -> rh, theta_1 -> tau
+
+    # We will try to find the coordinate in sim_data_flat that matches the parameter logic
+    # If the parameter name is theta_0, we look for 'rh' or 'param_0'.
+    # If theta_1, we look for 'tau' or 'param_1'.
+
     for i, param in enumerate(experiment_config.parameters):
-        coord_name = param_coord_names[i]
-        # If the calibration parameter is a coordinate, extract it; otherwise, try to get it from the stacked coordinates
-        if coord_name in sim_data_flat.coords:
-            vals = sim_data_flat[coord_name].to_numpy().reshape(-1, 1)
-        else:
-            # Try to extract from the original sim_data (e.g., if it's a scalar or broadcasted)
-            vals = np.full_like(lat, sim_data[coord_name].item())
+        vals = None
+
+        # 1. Direct name match
+        if param.name in sim_data_flat.coords:
+            vals = sim_data_flat[param.name].to_numpy()
+
+        # 2. Heuristic for theta_0 -> rh
+        elif param.name == "theta_0" and "rh" in sim_data_flat.coords:
+            vals = sim_data_flat["rh"].to_numpy()
+
+        # 3. Heuristic for theta_1 -> tau
+        elif param.name == "theta_1" and "tau" in sim_data_flat.coords:
+            vals = sim_data_flat["tau"].to_numpy()
+
+        # 4. Fallback: param_i (from CSV loading branch)
+        elif f"param_{i}" in sim_data_flat.coords:
+            vals = sim_data_flat[f"param_{i}"].to_numpy()
+
+        # 5. Fallback for T21 legacy: if 't' contains the parameter value (e.g. rh implies t)
+        elif (
+            "t" in sim_data_flat.coords
+            and i == 0
+            and len(experiment_config.parameters) == 1
+        ):
+            vals = sim_data_flat["t"].to_numpy()
+
+        if vals is None:
+            raise ValueError(
+                f"Could not locate simulation values for parameter {param.name}"
+            )
+
+        vals = vals.reshape(-1, 1)
+
+        # Normalize
         pmin, pmax = param.range
         p_norm = (vals - pmin) / (pmax - pmin)
         t_normalized_list.append(p_norm)
@@ -154,6 +196,12 @@ def load(
     field_dataset = gpx.Dataset(X=xf, y=yf_centered)
     comp_dataset = gpx.Dataset(X=Xc, y=yc_centered)
     koh_dataset = kgx.KOHDataset(field_dataset, comp_dataset)
+
+    # --- Apply Filters if defined in config ---
+    if getattr(experiment_config, "filters", None):
+        koh_dataset = filter_dataset(
+            koh_dataset, experiment_config.filters, experiment_config, tminmax
+        )
 
     return koh_dataset, tminmax, yc_mean
 
@@ -260,3 +308,97 @@ def save_chains_to_netcdf(
     filename = f"W{n_warm_up_iter}-N{n_main_iter}-Nsim{n_sim}.nc"
     inference_data.to_netcdf(os.path.join(output_dir, filename))
     print(f"Saved chains to {os.path.join(output_dir, filename)}")
+
+
+def filter_dataset(
+    kohdataset: kgx.KOHDataset,
+    filters: dict,
+    experiment_config: ExperimentConfig,
+    tminmax: dict,
+) -> kgx.KOHDataset:
+    """
+    Filter the KOHDataset based on variable ranges.
+
+    Args:
+        kohdataset: The dataset to filter.
+        filters: Dictionary defining filters. Keys can be 'lat' or parameter names.
+                 Values are tuples (min, max). Use None for no bound.
+                 Example: {'lat': [-70, 70], 'theta_0': [0.35, None]}
+        experiment_config: Experiment configuration.
+        tminmax: Dictionary of parameter ranges (min, max) for denormalization.
+
+    Returns:
+        Filtered KOHDataset.
+    """
+    import numpy as np
+
+    print(f"\n[Filter Dataset] Applying filters: {filters}")
+    print(f"Original Xc: {kohdataset.Xc.shape}, y: {kohdataset.y.shape}")
+    print(f"Original Xf: {kohdataset.Xf.shape}, z: {kohdataset.z.shape}")
+
+    # --- Filter Simulation Data (Xc, y) ---
+    # Start with all true
+    keep_sim = np.ones(kohdataset.Xc.shape[0], dtype=bool)
+
+    # 1. Filter by Latitude (Column 0 of Xc)
+    lat_sim = kohdataset.Xc[:, 0]
+    if "lat" in filters:
+        fmin, fmax = filters["lat"]
+        if fmin is not None:
+            keep_sim &= lat_sim >= fmin
+        if fmax is not None:
+            keep_sim &= lat_sim <= fmax
+
+    # 2. Filter by Parameters (Columns 1..N of Xc)
+    # Map parameter names to column indices
+    # Xc columns: [Lat, Param1_Norm, Param2_Norm, ...]
+    # Params are in order of experiment_config.parameters
+    for i, param in enumerate(experiment_config.parameters):
+        if param.name in filters:
+            # Column index is i + 1 (since 0 is Lat)
+            col_idx = i + 1
+            norm_vals = kohdataset.Xc[:, col_idx]
+
+            # Denormalize
+            if param.name in tminmax:
+                pmin, pmax = tminmax[param.name]
+                phys_vals = norm_vals * (pmax - pmin) + pmin
+            else:
+                # Should strict fail or warn? tminmax should have it.
+                phys_vals = norm_vals  # fallback
+
+            fmin, fmax_val = filters[param.name]
+            if fmin is not None:
+                keep_sim &= phys_vals >= fmin
+            if fmax_val is not None:
+                keep_sim &= phys_vals <= fmax_val
+
+    # Apply simulation mask
+    Xc_filtered = kohdataset.Xc[keep_sim]
+    y_filtered = kohdataset.y[keep_sim]
+
+    # --- Filter Field Data (Xf, z) ---
+    keep_field = np.ones(kohdataset.Xf.shape[0], dtype=bool)
+
+    # 1. Filter by Latitude (Column 0 of Xf)
+    lat_field = kohdataset.Xf[:, 0]
+    if "lat" in filters:
+        fmin, fmax = filters["lat"]
+        if fmin is not None:
+            keep_field &= lat_field >= fmin
+        if fmax is not None:
+            keep_field &= lat_field <= fmax
+
+    # Apply field mask
+    Xf_filtered = kohdataset.Xf[keep_field]
+    z_filtered = kohdataset.z[keep_field]
+
+    # Create new KOHDataset
+    field_dataset_filtered = gpx.Dataset(X=Xf_filtered, y=z_filtered)
+    comp_dataset_filtered = gpx.Dataset(X=Xc_filtered, y=y_filtered)
+    new_dataset = kgx.KOHDataset(field_dataset_filtered, comp_dataset_filtered)
+
+    print(f"Filtered Xc: {new_dataset.Xc.shape}, y: {new_dataset.y.shape}")
+    print(f"Filtered Xf: {new_dataset.Xf.shape}, z: {new_dataset.z.shape}\n")
+
+    return new_dataset

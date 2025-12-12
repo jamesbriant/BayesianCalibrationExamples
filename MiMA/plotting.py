@@ -122,12 +122,6 @@ def plot_posterior_chains_with_priors(
     plot_style=plot_style,
     **kwargs,
 ) -> plt.Axes:
-    # true_params = {p["name"]: p["true_value"] for p in config.PARAMETERS}
-    # true_values = {"epsilon_precision": 1 / np.array(config.OBS_NOISE_STD) ** 2} | {
-    #     f"theta_{i}": true_params[f"t{i}"] for i in range(config.N_CALIB_PARAMS)
-    # }
-    # lines = [(name, {}, value) for name, value in true_values.items()]
-
     # Plot the prior, posterior, true values (if known) and chains
     with plt.style.context(plot_style):
         axes = arviz.plot_trace(
@@ -159,10 +153,6 @@ def plot_posterior_chains_with_priors(
                 tracer_index_dict[title]
             ].distribution
             pdf = np.exp(prior_dist.log_prob(x_pdf)) * jacobian
-
-            # if title in tminmax:
-            #     print(prior_dist.low, prior_dist.high)
-            #     print(tmin, tmax)
 
             # Scaling factor to make prior visible against the posterior KDE
             # Arviz KDEs are densities, so this should ideally be 1.0 if we want to compare densities.

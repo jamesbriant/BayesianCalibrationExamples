@@ -61,7 +61,6 @@ def main(
     )
 
     n_sim = kohdataset.num_sim_obs
-    print(kohdataset)
 
     prior_dict = get_ModelParameterPriorDict(config_module, tminmax)
     model_parameters = ModelParameters(prior_dict=prior_dict)
