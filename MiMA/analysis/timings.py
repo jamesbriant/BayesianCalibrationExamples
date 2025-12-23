@@ -98,7 +98,7 @@ def plot_time_vs_sim_output() -> tuple[plt.Figure, list[plt.Axes]]:
     return fig, axes
 
 
-if __name__ == "__main__":
+def run():
     fig, axes = plot_time_vs_sim_output()
     plt.savefig("figures/time-vs-sim-output.png", dpi=300)
     plt.close(fig)

@@ -1,6 +1,9 @@
-import argparse
 import json
 import os
+import sys
+
+# Add parent directory to path to allow importing utils
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import arviz as az
 import jax
@@ -33,7 +36,7 @@ def find_peaks(grid, pdf):
     return peaks
 
 
-def analyze_posterior(experiment_dir: str):
+def run(experiment_dir: str):
     """
     Analyze the posterior distribution from MCMC results.
     """
@@ -185,13 +188,3 @@ def analyze_posterior(experiment_dir: str):
         json.dump(results, f, indent=2)
 
     print(f"Analysis saved to {output_path}")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Analyze posterior MCMC samples.")
-    parser.add_argument(
-        "experiment_dir", type=str, help="Path to the experiment directory."
-    )
-
-    args = parser.parse_args()
-    analyze_posterior(args.experiment_dir)

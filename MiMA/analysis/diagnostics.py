@@ -1,6 +1,9 @@
-import argparse
 import glob
 import os
+import sys
+
+# Add parent directory to path to allow importing utils
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import arviz as az
 import matplotlib.pyplot as plt
@@ -11,7 +14,7 @@ from plotting import plot_posterior_chains_with_priors
 from utils import load_config_from_model_dir, load_model_from_model_dir
 
 
-def main(model_dir, output_dir=None):
+def run(model_dir: str, output_dir: str = None):
     config_module = load_config_from_model_dir(model_dir)
     experiment_config = config_module.experiment_config
     experiment_name = experiment_config.name
@@ -82,16 +85,3 @@ def main(model_dir, output_dir=None):
     plt.close()
 
     print(f"Plots saved to {diag_dir}")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--model_dir", type=str, required=True, help="Path to model directory"
-    )
-    parser.add_argument(
-        "--output_dir", type=str, help="Directory containing the chain file"
-    )
-    args = parser.parse_args()
-    main(args.model_dir, args.output_dir)
-    main(args.model_dir, args.output_dir)

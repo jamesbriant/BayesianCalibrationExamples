@@ -161,6 +161,10 @@ def plot_posterior_chains_with_priors(
             axes[i, 0].plot(x, pdf, color="red", linestyle="--", label="Prior")
             axes[i, 0].legend()
 
+    # Fix overlap
+    if axes.size > 0:
+        axes.ravel()[0].figure.tight_layout()
+
     return axes
 
 

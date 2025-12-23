@@ -1,5 +1,8 @@
-import argparse
 import os
+import sys
+
+# Add parent directory to path to allow importing utils
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import jax
 import jax.numpy as jnp
@@ -64,7 +67,7 @@ def build_params_constrained(
     return params_constrained
 
 
-def main(model_dir: str, output_dir: str, W=None, N=None, chain_file=None):
+def run(model_dir: str, output_dir: str, W=None, N=None, chain_file=None):
     config_module = load_config_from_model_dir(model_dir)
     experiment_config = config_module.experiment_config
     file_name = experiment_config.name
@@ -72,10 +75,16 @@ def main(model_dir: str, output_dir: str, W=None, N=None, chain_file=None):
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     data_root = os.path.join(script_dir, "data")
+    # Hack: data root relative to where we run?
+    # Actually, data is in root/data. script_dir is root/analysis (after move).
+    # So we need ../data. But let caller handle this or fix properly.
+    # Since we appended root to path, we know where root is.
+    # Better: usage of utils/datahandler load assumes data_root.
+    # "data" works if running from root.
 
     kohdataset, tminmax, yc_mean = load(
         experiment_config=experiment_config,
-        data_root=data_root,
+        data_root="data",
     )
 
     prior_dict = get_ModelParameterPriorDict(config_module, tminmax)
@@ -88,16 +97,18 @@ def main(model_dir: str, output_dir: str, W=None, N=None, chain_file=None):
     chain_path = chain_file
     if chain_path is None and W is not None and N is not None:
         # Try to find latest run dir with W/N
-        exp_dir = os.path.join(script_dir, "experiments", file_name)
-        candidates = sorted(
-            [d for d in os.listdir(exp_dir) if d.endswith(f"_W{W}_N{N}")]
-        )
-        if candidates:
-            latest = os.path.join(exp_dir, candidates[-1])
-            # pick any .nc file
-            nc_files = [f for f in os.listdir(latest) if f.endswith(".nc")]
-            if nc_files:
-                chain_path = os.path.join(latest, nc_files[0])
+        # Assumes experiments dir is in root
+        exp_dir = os.path.join("experiments", file_name)
+        if os.path.exists(exp_dir):
+            candidates = sorted(
+                [d for d in os.listdir(exp_dir) if d.endswith(f"_W{W}_N{N}")]
+            )
+            if candidates:
+                latest = os.path.join(exp_dir, candidates[-1])
+                # pick any .nc file
+                nc_files = [f for f in os.listdir(latest) if f.endswith(".nc")]
+                if nc_files:
+                    chain_path = os.path.join(latest, nc_files[0])
 
     if chain_path is not None and os.path.exists(chain_path):
         means = load_params_from_chain(chain_path)
@@ -133,37 +144,3 @@ def main(model_dir: str, output_dir: str, W=None, N=None, chain_file=None):
     out_path = os.path.join(output_dir, "predictions.png")
     fig.savefig(out_path, dpi=150)
     print(f"Saved {out_path}")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Plot KOH predictions: eta, zeta, obs, and discrepancy."
-    )
-    parser.add_argument(
-        "model_dir", type=str, help="Path to the model directory (e.g., models/T21)"
-    )
-    parser.add_argument("output_dir", type=str, help="Output directory for the figure")
-    parser.add_argument(
-        "W",
-        type=int,
-        nargs="?",
-        default=None,
-        help="Optional warmup iterations (for locating latest run)",
-    )
-    parser.add_argument(
-        "N",
-        type=int,
-        nargs="?",
-        default=None,
-        help="Optional main iterations (for locating latest run)",
-    )
-    parser.add_argument(
-        "--chain_file",
-        type=str,
-        default=None,
-        help="Path to NetCDF chain file to extract posterior means",
-    )
-    args = parser.parse_args()
-    main(
-        args.model_dir, args.output_dir, W=args.W, N=args.N, chain_file=args.chain_file
-    )
