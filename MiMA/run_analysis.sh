@@ -2,16 +2,18 @@
 
 #!/bin/bash
 
-# Usage: ./run_analysis.sh [backend] [model_dir] [warmup] [main_iter] [sample_step] [n_chain]
-# Example: ./run_analysis.sh mici models/T21 100 100 3 2
+# Usage: ./run_analysis.sh [env] [backend] [model_dir] [warmup] [main_iter] [sample_step] [n_chain] [n_processes]
+# Example: ./run_analysis.sh py311noipython mici models/T21 100 100 3 2 4
 
-BACKEND=${1:-mici}   # mici | blackjax
-MODEL_DIR=${2:-models/T21}
-WARMUP=${3:-60}
-MAIN=${4:-60}
-SAMPLE_STEP=${5:-3}
-N_CHAIN=${6:-2}
-ENV="py311noipython"
+ENV=${1:-"py311noipython"}
+BACKEND=${2:-mici}   # mici | blackjax
+MODEL_DIR=${3:-models/T21}
+WARMUP=${4:-60}
+MAIN=${5:-60}
+SAMPLE_STEP=${6:-3}
+N_CHAIN=${7:-2}
+# N_PROCESSES=${8:-1}
+
 
 # Ensure we are in the script's directory
 cd "$(dirname "$0")"
@@ -25,6 +27,7 @@ echo "Main Iterations: $MAIN"
 echo "Environment: $ENV"
 echo "Sample Step: $SAMPLE_STEP"
 echo "Chains: $N_CHAIN"
+# echo "Processes: $N_PROCESSES"
 echo "----------------------------------------------------------------"
 
 CONFIG_PATH="$MODEL_DIR/config.py"
@@ -33,7 +36,7 @@ EXP_NAME=$(basename "$MODEL_DIR")
 echo "[1/6] Running MCMC Sampling ($BACKEND)..."
 # Stream output from conda-run and run Python unbuffered for live progress
 # Note: we use python mima.py run ...
-PYTHONUNBUFFERED=1 conda run --no-capture-output -n $ENV python -u mima.py run "$MODEL_DIR" -W "$WARMUP" -N "$MAIN" --n_chain "$N_CHAIN" --backend "$BACKEND"
+PYTHONUNBUFFERED=1 conda run --no-capture-output -n $ENV python -u mima.py run "$MODEL_DIR" -W "$WARMUP" -N "$MAIN" --n_chain "$N_CHAIN" --backend "$BACKEND" #--n_processes "$N_PROCESSES"
 if [ $? -ne 0 ]; then
     echo "Error: MCMC sampling failed."
     exit 1
