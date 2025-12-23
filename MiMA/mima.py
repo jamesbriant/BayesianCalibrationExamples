@@ -1,7 +1,6 @@
 import argparse
 
 from analysis import diagnostics, posterior, ppc, predictions, sim_sample, timings
-from runners import blackjax, mici
 
 
 def main():
@@ -80,7 +79,7 @@ def main():
     sim_parser.add_argument("--alpha", type=float, default=0.3)
 
     # plot timings
-    time_parser = plot_subparsers.add_parser("timings", help="Plot Timings")
+    # time_parser = plot_subparsers.add_parser("timings", help="Plot Timings")
 
     # --- ANALYZE Command ---
     analyze_parser = subparsers.add_parser("analyze", help="Analyze Posterior")
@@ -92,6 +91,8 @@ def main():
 
     if args.command == "run":
         if args.backend == "mici":
+            from runners import mici
+
             mici.run(
                 model_dir=args.model_dir,
                 n_warm_up_iter=args.W,
@@ -102,6 +103,8 @@ def main():
                 max_tree_depth=args.max_tree_depth,
             )
         elif args.backend == "blackjax":
+            from runners import blackjax
+
             blackjax.run(
                 model_dir=args.model_dir,
                 n_warm_up_iter=args.W,
